@@ -22,6 +22,8 @@ setup(
         'pyserial',
         'minimalmodbus',
         'paramiko',
+        'matplotlib',
+        'qtpy',
     ],
     package_data={'imautils': ['VERSION']},
     include_package_data=True,
