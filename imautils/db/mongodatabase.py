@@ -416,11 +416,11 @@ def MongoDatabase():
             _message = ('Could not retrieve data from {0}'.format(collection))
             raise DatabaseError(_message)
 
-        # creates 'field' key if there isn't one in _db_dict
-        if 'field' not in self._db_dict.keys():
-            self._db_dict['field'] = self._db_dict['column']
-
         for _attr_name in self._db_dict:
+            # creates 'field' key if there isn't one in _db_dict
+            if 'field' not in self._db_dict[_attr_name].keys():
+                self._db_dict[_attr_name]['field'] = (
+                    self._db_dict[_attr_name]['column'])
             _field = self._db_dict[_attr_name]['field']
             _dtype = self._db_dict[_attr_name]['dtype']
 
@@ -477,11 +477,11 @@ def MongoDatabase():
         _values = {'date': _timestamp[0],
                    'hour': _timestamp[1]}
 
-        # creates 'field' key if there isn't one in _db_dict
-        if 'field' not in self._db_dict.keys():
-            self._db_dict['field'] = self._db_dict['column']
-
         for _attr_name in self._db_dict:
+            # creates 'field' key if there isn't one in _db_dict
+            if 'field' not in self._db_dict[_attr_name].keys():
+                self._db_dict[_attr_name]['field'] = (
+                    self._db_dict[_attr_name]['column'])
             _field = self._db_dict[_attr_name]['field']
             _dtype = self._db_dict[_attr_name]['dtype']
 
@@ -544,11 +544,11 @@ def MongoDatabase():
         _values = {'date': _timestamp[0],
                    'hour': _timestamp[1]}
 
-        # creates 'field' key if there isn't one in _db_dict
-        if 'field' not in self._db_dict.keys():
-            self._db_dict['field'] = self._db_dict['column']
-
         for _attr_name in self._db_dict:
+            # creates 'field' key if there isn't one in _db_dict
+            if 'field' not in self._db_dict[_attr_name].keys():
+                self._db_dict[_attr_name]['field'] = (
+                    self._db_dict[_attr_name]['column'])
             _field = self._db_dict[_attr_name]['field']
             _dtype = self._db_dict[_attr_name]['dtype']
 
