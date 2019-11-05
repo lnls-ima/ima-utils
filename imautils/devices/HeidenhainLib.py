@@ -108,16 +108,16 @@ def Heidenhain_factory(baseclass):
     class Heidenhain(baseclass):
         """Heidenhain Display."""
 
-        def __init__(self, logfile=None):
-            """Initiaze all variables and prepare log file.
+        def __init__(self, log=False):
+            """Initiaze all variables and prepare log.
 
             Args:
             ----
-                logfile (str): log file path.
+                log (bool): True to use event logging, False otherwise.
 
             """
             self.commands = HeidenhainCommands()
-            super().__init__(logfile)
+            super().__init__(log=log)
 
         def write_display_value(self, axis, value, wait=0.2):
             """Write value to display."""

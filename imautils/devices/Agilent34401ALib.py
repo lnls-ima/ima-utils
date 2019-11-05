@@ -53,16 +53,16 @@ def Agilent34401A_factory(baseclass):
     class Agilent34401A(baseclass):
         """Agilent 34401A digital multimeter."""
 
-        def __init__(self, logfile=None):
-            """Initiaze variables and prepare log file.
+        def __init__(self, log=False):
+            """Initiaze variables and prepare log.
 
             Args:
             ----
-                logfile (str): log file path.
+                log (bool): True to use event logging, False otherwise.
 
             """
             self.commands = Agilent34401ACommands()
-            super().__init__(logfile)
+            super().__init__(log=log)
 
         def connect(self, *args, **kwargs):
             """Connect with the device."""

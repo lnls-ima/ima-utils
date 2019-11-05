@@ -12,19 +12,19 @@ def UDC_factory(baseclass):
     class UDC(baseclass):
         """Honeywell UDC control class."""
 
-        def __init__(self, logfile=None):
+        def __init__(self, log=False):
             """Honeywell UDC control class.
 
             Args:
             ----
-                logfile (str): log file path.
+                log (bool): True to use event logging, False otherwise.
 
             """
             self.output1_register_address = 70
             self.output2_register_address = 382
             self.pv1_register_address = 72
             self.pv2_register_address = 74
-            super().__init__(logfile)
+            super().__init__(log=log)
 
         def read_output1(self):
             """Return controller output 1."""

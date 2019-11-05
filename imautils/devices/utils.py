@@ -10,18 +10,18 @@ import minimalmodbus as _minimalmodbus
 class GPIBInterface():
     """Class for communication with GPIB devices."""
 
-    def __init__(self, logfile=None):
-        """Initiaze all variables and prepare log file.
+    def __init__(self, log=False):
+        """Initiaze all variables and prepare log.
 
         Args:
         ----
-            logfile (str): log file path.
+            log (bool): True to use event logging, False otherwise.
 
         """
         self.interface = 'gpib'
         self.inst = None
+        self.log = log
         self.logger = None
-        self.logfile = logfile
         self.log_events()
 
     @property
@@ -40,15 +40,8 @@ class GPIBInterface():
 
     def log_events(self):
         """Prepare log file to save info, warning and error status."""
-        if self.logfile is not None:
-            formatter = _logging.Formatter(
-                fmt='%(asctime)s\t%(levelname)s\t%(message)s',
-                datefmt='%m/%d/%Y %H:%M:%S')
-            file_handler = _logging.FileHandler(self.logfile, mode='w')
-            file_handler.setFormatter(formatter)
-            logname = self.logfile.replace('.log', '')
-            self.logger = _logging.getLogger(logname)
-            self.logger.addHandler(file_handler)
+        if self.log:
+            self.logger = _logging.getLogger()
             self.logger.setLevel(_logging.ERROR)
 
     def connect(self, address, board=0, timeout=1000):
@@ -175,18 +168,18 @@ class GPIBInterface():
 class SerialInterface():
     """Class for communication with Serial device."""
 
-    def __init__(self, logfile=None):
-        """Initiaze all variables and prepare log file.
+    def __init__(self, log=False):
+        """Initiaze all variables and prepare log.
 
         Args:
         ----
-            logfile (str): log file path.
+            log (bool): True to use event logging, False otherwise.
 
         """
         self.interface = 'serial'
         self.inst = None
+        self.log = log
         self.logger = None
-        self.logfile = logfile
         self.log_events()
 
     @property
@@ -199,15 +192,8 @@ class SerialInterface():
 
     def log_events(self):
         """Prepare log file to save info, warning and error status."""
-        if self.logfile is not None:
-            formatter = _logging.Formatter(
-                fmt='%(asctime)s\t%(levelname)s\t%(message)s',
-                datefmt='%m/%d/%Y %H:%M:%S')
-            file_handler = _logging.FileHandler(self.logfile, mode='w')
-            file_handler.setFormatter(formatter)
-            logname = self.logfile.replace('.log', '')
-            self.logger = _logging.getLogger(logname)
-            self.logger.addHandler(file_handler)
+        if self.log:
+            self.logger = _logging.getLogger()
             self.logger.setLevel(_logging.ERROR)
 
     def connect(
@@ -240,7 +226,7 @@ class SerialInterface():
                 self.inst.open()
             return True
         except Exception:
-            if self.logfile is not None:
+            if self.logger is not None:
                 self.logger.error('exception', exc_info=True)
             return None
 
@@ -268,12 +254,15 @@ class SerialInterface():
 
         """
         try:
-            self.inst.reset_input_buffer()
-            self.inst.reset_output_buffer()
-            command = command + '\r\n'
-            return self.inst.write(command.encode('utf-8')) == len(command)
+            if self.inst is not None:
+                self.inst.reset_input_buffer()
+                self.inst.reset_output_buffer()
+                command = command + '\r\n'
+                return self.inst.write(command.encode('utf-8')) == len(command)
+            else:
+                return None
         except Exception:
-            if self.logfile is not None:
+            if self.logger is not None:
                 self.logger.error('exception', exc_info=True)
             return None
 
@@ -289,10 +278,13 @@ class SerialInterface():
 
         """
         try:
-            reading = self.inst.read_all().decode('utf-8')
-            return reading
+            if self.inst is not None:
+                reading = self.inst.read_all().decode('utf-8')
+                return reading
+            else:
+                return ''
         except Exception:
-            if self.logfile is not None:
+            if self.logger is not None:
                 self.logger.error('exception', exc_info=True)
             return ''
 
@@ -300,18 +292,18 @@ class SerialInterface():
 class ModBusInterface():
     """ModBus communication class."""
 
-    def __init__(self, logfile=None):
-        """Initiaze all variables and prepare log file.
+    def __init__(self, log=False):
+        """Initiaze all variables and prepare log.
 
         Args:
         ----
-            logfile (str): log file path.
+            log (bool): True to use event logging, False otherwise.
 
         """
         self.interface = 'modbus'
         self.inst = None
+        self.log = log
         self.logger = None
-        self.logfile = logfile
         self.log_events()
 
     @property
@@ -324,15 +316,8 @@ class ModBusInterface():
 
     def log_events(self):
         """Prepare log file to save info, warning and error status."""
-        if self.logfile is not None:
-            formatter = _logging.Formatter(
-                fmt='%(asctime)s\t%(levelname)s\t%(message)s',
-                datefmt='%m/%d/%Y %H:%M:%S')
-            file_handler = _logging.FileHandler(self.logfile, mode='w')
-            file_handler.setFormatter(formatter)
-            logname = self.logfile.replace('.log', '')
-            self.logger = _logging.getLogger(logname)
-            self.logger.addHandler(file_handler)
+        if self.log:
+            self.logger = _logging.getLogger()
             self.logger.setLevel(_logging.ERROR)
 
     def connect(
@@ -367,7 +352,7 @@ class ModBusInterface():
                 self.inst.serial.open()
             return True
         except Exception:
-            if self.logfile is not None:
+            if self.logger is not None:
                 self.logger.error('exception', exc_info=True)
             return None
 
@@ -394,8 +379,19 @@ class ModBusInterface():
 
         """
         try:
-            return self.inst.read_float(registeraddress)
+            if self.inst is not None:
+                return self.inst.read_float(registeraddress)
+            else:
+                return ''
         except Exception:
-            if self.logfile is not None:
+            if self.logger is not None:
                 self.logger.error('exception', exc_info=True)
             return ''
+
+
+def configure_logging(logfile):
+    _logging.basicConfig(
+        filename=logfile,
+        format='%(asctime)s\t%(levelname)s\t%(message)s',
+        datefmt='%m/%d/%Y %H:%M:%S',
+        filemode='a+')

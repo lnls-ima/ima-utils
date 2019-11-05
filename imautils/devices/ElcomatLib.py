@@ -24,17 +24,17 @@ def Elcomat_factory(baseclass):
     class Elcomat(baseclass):
         """Class for communication with Elcomat device."""
 
-        def __init__(self, logfile=None):
-            """Initiaze all variables and prepare log file.
+        def __init__(self, log=False):
+            """Initiaze all variables and prepare log.
 
             Args:
             ----
-                logfile (str): log file path.
+                log (bool): True to use event logging, False otherwise.
 
             """
             self.delay = 0.01
             self.commands = ElcomatCommands()
-            super().__init__(logfile)
+            super().__init__(log=log)
 
         def connect(self, *args, **kwargs):
             """Connect with the device."""

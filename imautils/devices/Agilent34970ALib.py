@@ -32,19 +32,19 @@ def Agilent34970A_factory(baseclass):
     class Agilent34970A(baseclass):
         """Agilent 34970A multichannel for temperatures readings."""
 
-        def __init__(self, logfile=None):
-            """Initiaze variables and prepare logging file.
+        def __init__(self, log=False):
+            """Initiaze variables and prepare logging.
 
             Args:
             ----
-                logfile (str): log file path.
+                log (bool): True to use event logging, False otherwise.
 
             """
             self._config_channels = []
             self.temperature_channels = ['101', '105']
             self.voltage_channels = ['102', '103', '107']
             self.commands = Agilent34970ACommands()
-            super().__init__(logfile)
+            super().__init__(log=log)
 
         @property
         def config_channels(self):

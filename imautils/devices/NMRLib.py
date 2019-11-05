@@ -68,17 +68,17 @@ def NMR_factory(baseclass):
     class NMR(baseclass):
         """Class for communication with NMR device."""
 
-        def __init__(self, logfile=None):
-            """Initiaze all variables and prepare log file.
+        def __init__(self, log=False):
+            """Initiaze all variables and prepare log.
 
             Args:
             ----
-                logfile (str): log file path.
+                log (bool): True to use event logging, False otherwise.
 
             """
             self.commands = NMRCommands()
             self.rlock = _threading.RLock()
-            super().__init__(logfile)
+            super().__init__(log=log)
 
         @property
         def locked(self):

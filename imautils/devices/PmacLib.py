@@ -1,7 +1,10 @@
 # -*- coding: utf-8 -*-
 """Pmac Lib."""
 
-import ctypes as _ctypes
+import sys as _sys
+import traceback as _traceback
+import win32com.client as _client
+import win32com.shell.shell as _shell
 import logging as _logging
 
 
@@ -174,17 +177,15 @@ class PmacCommands(object):
 class Pmac(object):
     """Implementation of the main commands to control the bench."""
 
-    def __init__(self, logfile=None):
+    def __init__(self, log=False):
         """Initiaze all function variables."""
+        self.log = log
         self.logger = None
-        self.logfile = logfile
         self.log_events()
 
-        # load commands
         self.commands = PmacCommands()
-
-        # start goblal variables
-        self._pmacdll = None
+        self._com_obj = None
+        self._dev_number = 0
         self._value = ''
         self._connected = False
 
@@ -195,70 +196,54 @@ class Pmac(object):
 
     def log_events(self):
         """Prepare logging file to save info, warning and error status."""
-        if self.logfile is not None:
-            formatter = _logging.Formatter(
-                fmt='%(asctime)s\t%(levelname)s\t%(message)s',
-                datefmt='%m/%d/%Y %H:%M:%S')
-            fileHandler = _logging.FileHandler(self.logfile, mode='w')
-            fileHandler.setFormatter(formatter)
-            logname = self.logfile.replace('.log', '')
-            self.logger = _logging.getLogger(logname)
-            self.logger.addHandler(fileHandler)
+        if self.log:
+            self.logger = _logging.getLogger()
             self.logger.setLevel(_logging.DEBUG)
 
-    def load_dll(self):
-        """Load dll file PComm32W.dll to control the bench.
+    def create_com_object(self):
+        """Create PcommServer.PmacDevice object.
 
         Return:
             True if successful, False otherwise.
         """
         try:
-            self._pmacdll = _ctypes.windll.LoadLibrary('PComm32W.dll')
+            if not _shell.IsUserAnAdmin():
+                if self.logger is not None:
+                    self.logger.error(
+                        'Fail to connect: user is not a admin.')
+                return False
+           
+            self._com_obj = _client.Dispatch('PcommServer.PmacDevice')
             return True
         except Exception:
             if self.logger is not None:
-                self.logger.error('Fail to connect to dll')
+                self.logger.error('Fail to connect to create Pmac COM object')
             return False
 
     def connect(self):
-        """Connect to Pmac device - OpenPmacDevice(0)."""
-        if self._pmacdll is None:
-            if not self.load_dll():
+        """Connect to Pmac device - Open(DeviceNumber)."""
+        if self._com_obj is None:
+            if not self.create_com_object():
                 return False
 
         try:
-            status = bool(self._pmacdll.OpenPmacDevice(0))
+            status = bool(self._com_obj.Open(self._dev_number))
             self._connected = status
             return status
         except Exception:
             return False
 
     def disconnect(self):
-        """Disconnect Pmac device - ClosePmacDevice(0)."""
-        if self._pmacdll is None:
+        """Disconnect Pmac device - Close(DeviceNumber)."""
+        if self._com_obj is None:
+            self._connected = False
             return True
 
         try:
-            status = bool(self._pmacdll.ClosePmacDevice(0))
-            if status is None:
-                self._connected = None
-            else:
-                self._connected = not status
-            return status
-        except Exception:
-            return None
-
-    def lock_pmac(self):
-        """Lock Pmac to avoid multiple operations - LockPmac(0)."""
-        try:
-            return self._pmacdll.LockPmac(0)
-        except Exception:
-            return None
-
-    def release_pmac(self):
-        """Release Pmac - ReleasePmac(0)."""
-        try:
-            return self._pmacdll.ReleasePmac(0)
+            self._com_obj.Close(self._dev_number)
+            self._com_obj = None
+            self._connected = False
+            return True
         except Exception:
             return None
 
@@ -272,40 +257,41 @@ class Pmac(object):
 
     def get_response(self, str_command):
         """
-        Get response of the string command from Pmac device - PmacExA.
+        Get response of the string command from Pmac device - GetResponseEx.
 
         Returns True or False and the resulted value when available
         """
         try:
+            if self._com_obj is None:
+                self._value = ''
+                return None
+            
             MASK_STATUS = 0xF0000000
             COMM_EOT = 0x80000000
             # An acknowledge character (ACK ASCII 9) was received
             # indicating end of transmission from PMAC to Host PC.
 
-            maxchar = 16
-            # create empty string with n*maxchar
-            response = (' '*maxchar).encode('utf-8')
-
             # send command and get pmac response
-            _retval = self._pmacdll.PmacGetResponseExA(
-                0,
-                response,
-                maxchar,
-                str_command.encode('utf-8'))
+            response, retval = self._com_obj.GetResponseEx(
+                self._dev_number,
+                str_command.encode('utf-8'),
+                False)
 
             # check the status and if it matches with the
             # acknowledge character COMM_EOT
-            if _retval & MASK_STATUS == COMM_EOT:
-                result = response.decode('utf-8')
-                # erase all result after /r
+            if retval & MASK_STATUS == COMM_EOT:
+                result = response.encode('utf-8').decode('utf-8')
                 self._value = result[0:result.find('\r')]
-
                 return True
+            
             else:
+                self._value = ''
                 return False
         except Exception:
+            _traceback.print_exc(file=_sys.stdout)
             if self.logger is not None:
                 self.logger.error('exception', exc_info=True)
+            self._value = ''
             return None
 
     def read_response(self, str_command):
@@ -402,6 +388,7 @@ class Pmac(object):
             else:
                 return None
         except Exception:
+            _traceback.print_exc(file=_sys.stdout)
             if self.logger is not None:
                 self.logger.error('exception', exc_info=True)
             return None
