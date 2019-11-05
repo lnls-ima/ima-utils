@@ -15,6 +15,7 @@ import visa
 
 class SerialCom(object):
     def __init__(self, port):
+        """FDI2056 integrator class for serial protocol communication."""
         self.ser = serial.Serial(port)
         self.commands()
         self.delay = 0.2
@@ -105,7 +106,7 @@ class SerialCom(object):
                 reading = self.ser.read(n)
             reading = reading.decode('utf-8')
             reading = reading.replace('\r\n', '')
-        except:
+        except Exception:
             reading = ''
 
         return reading
@@ -129,7 +130,7 @@ class SerialCom(object):
             time.sleep(0.05)
             reading = self.read(50)
             return reading
-        except:
+        except Exception:
             return ''
 
     def config_encoder(self, encoder_pulses):
@@ -203,25 +204,27 @@ class SerialCom(object):
 
 class EthernetCom():
     def __init__(self):
+        """FDI2056 integrator class for ethernet protocol communication."""
         self.rm = visa.ResourceManager()
         self._commands()
 
     def _commands(self):
-        # le posicao do encoder
+        # reads encoder position
         self.FDIReadEncoder = "CONTR:ENC:POS?"
-        # configura encoder
+        # configures encoder
         self.FDIConfigEncoder = "CONTR:ENC:CONF 'DIFF,/A:/B:IND,ROT:"
-        # retorna comprimento do buffer de fluxo
+        # returns lengh of flux buffer
         self.FDIDataCount = "DATA:COUN?"
-        # configura encoder como fonte de trigger_ref
+        # configures encoder as trigger_ref source
         self.FDIArmEncoder = "ARM:SOUR ENC"
         # configura trigger_ref
+        # configures trigger_ref
         self.FDIArmRef = "ARM:ENC "
-        # configura integrais parciais (integra somente entre triggers)
+        # configures partial integrals (integrates only between triggers)
         self.FDICalcFlux = "CALC:FLUX 0"
         # disable timestamp
         self.FDIDisableTime = "FORM:TIMESTAMP:ENABLE 0"
-        # lê buffer de fluxo
+        # reads flux buffer
         self.FDIFetchArray = "FETC:ARR? "
         # Short circuit on
         self.FDIShortCircuitOn = "INP:COUP GND"
@@ -280,6 +283,13 @@ class EthernetCom():
         self.FDIOpc = "*OPC"
 
     def connect(self, bench=1):
+        """Connects to FDI2056 integrator.
+
+        Args:
+            bench (int): rotating coil bench number.
+
+        Returns:
+            True if successful, False otherwise."""
         try:
             _bench1 = 'TCPIP0::FDI2056-0004::inst0::INSTR'
             _bench2 = 'TCPIP0::FDI2056-0005::inst0::INSTR'
@@ -294,45 +304,79 @@ class EthernetCom():
             self.status_config()
             self.send(self.FDIShortCircuitOff)
             return True
-        except:
+        except Exception:
             return False
 
     def disconnect(self):
+        """Disconnects from FDI2056 integrator.
+
+        Returns:
+            True if successful, False otherwise."""
         try:
             self.inst.close()
             return True
-        except:
+        except Exception:
             return False
 
     def send(self, command):
+        """Sends a command to the integrator.
+
+        Args:
+            command (str): command to be sent to the integrator.
+
+        Returns:
+            True if successful, False otherwise."""
         try:
             self.inst.write(command + '\n')
             return True
-        except:
+        except Exception:
             return False
 
     def read(self):
+        """Reads integrator response.
+
+        Returns:
+            ans (str): answer from the integrator."""
         try:
             _ans = self.inst.read()
-        except:
+        except Exception:
             _ans = ''
         return _ans
 
     def read_encoder(self):
+        """Reads encoder position.
+
+        Returns:
+            ans (str): string contaning the encoder position."""
         try:
             self.send(self.FDIReadEncoder)
             _ans = self.read().strip('\n')
             return _ans
-        except:
+        except Exception:
             return ''
 
     def config_encoder(self, encoder_pulses):
+        """Configures encoder.
+
+        Args:
+            encoder_pulses (int): number of encoder pulses per measurement."""
         self.send(self.FDIConfigEncoder + str(encoder_pulses) + "'")
         self.send(self.FDIArmEncoder)
         self.send(self.FDITriggerSource)
 
     def config_measurement(self, encoder_pulses, gain, direction, trigger_ref,
                            integration_points, n_of_turns):
+        """Configures a measurement.
+
+        Args:
+            encoder_pulses (int): number of encoder pulses per measurement.
+            gain (int): integrator gain.
+            direction (bool): integrator direction (False is backwards, True is
+                forwards.
+            trigger_ref (int): number triggers before start the measurements.
+            integration_points (int): number of integration points per
+                measurement.
+            n_of_turns (int): number of turns per measurement."""
         _trig_count = str(integration_points*n_of_turns)
         _trig_interval = str(round(encoder_pulses/integration_points))
 
@@ -349,6 +393,12 @@ class EthernetCom():
         self.send(self.FDIDisableTime)
 
     def config_measurement_ext_trigger(self, gain, integration_points):
+        """Configures external trigger.
+
+        Args:
+            gain (int): integrator gain.
+            integration_ponts (int): number of integration ponts per
+                measurement."""
         self.send(self.FDIGain + str(gain))
         self.send(self.FDITriggerSourceExt)
         self.send(self.FDITriggerCount + str(integration_points))
@@ -356,25 +406,39 @@ class EthernetCom():
         self.send(self.FDIDisableTime)
 
     def start_measurement(self):
+        """Starts measurement."""
         self.send(self.FDIStop + ';' + self.FDIStart)
 
     def calibrate(self):
+        """Calibrates the integrator."""
         self.send(self.FDIShortCircuitOn)
         self.send(self.FDICalibrate)
         self.send(self.FDIShortCircuitOff)
 
     def get_data(self):
+        """Gets data from the integrator.
+
+        Returns:
+            ans (str): string containg the flux data."""
         _ans = str(self.get_data_count())
         self.send(self.FDIFetchArray + _ans + ', 12')
         _ans = self.read()
         return _ans
 
     def get_data_count(self):
+        """Gets number of flux data stored in the integrator.
+
+        Returns:
+            ans (int): number of flux data stored in the integrator."""
         self.send(self.FDIDataCount)
         _ans = int(self.read().strip('\n'))
         return _ans
 
     def status(self, reg=0):
+        """Reads status register.
+
+        Returns:
+            ans (str): a binary string containg the status register data."""
         if reg == 0:
             self.send(self.FDIStatus)
         elif reg == 1:
@@ -388,6 +452,7 @@ class EthernetCom():
         return _ans
 
     def status_config(self):
+        """Configures the status registers."""
         self.send(self.FDIClearStatus)
         self.send(self.FDIStatusEn + '255')
         self.send(self.FDIEventEn + '255')
