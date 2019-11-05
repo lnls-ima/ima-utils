@@ -7,6 +7,7 @@ import numpy as _np
 
 from . import utils as _utils
 from . import database as _database
+from . import mongodatabase as _mongodatabase
 
 
 _empty_str = '--'
@@ -20,11 +21,13 @@ class ConfigurationError(Exception):
         self.message = message
 
 
-class Configuration(_database.DatabaseObject):
+class Configuration(_database.DatabaseObject,
+                    _mongodatabase.MongoDatabase):
     """Base class for configurations."""
 
     _label = ''
     _db_table = ''
+    _db_collection = ''
     _db_dict = {}
     # Example of _db_dict:
     # _db_dict = _collections.OrderedDict([
@@ -32,21 +35,23 @@ class Configuration(_database.DatabaseObject):
     #         'column': 'column_name', 'dtype': str, 'not_null': True}),
     # ])
 
-    def __init__(self, filename=None, database=None, idn=None):
+    def __init__(self, filename=None, database=None, idn=None, mongo=False):
         """Initialize obejct.
 
         Args:
-        ----
             filename (str): connection configuration filepath.
-            database (str): database file path.
-            idn (int): id in database table.
-
+            database (str): database file path (sqlite)/ database name (mongo).
+            idn (int): id in database table (sqlite) / collection (mongo).
+            mongo (bool): flag indicating mongoDB (True) or sqlite (False).
         """
         if filename is not None and idn is not None:
             raise ValueError('Invalid arguments for Configuration object.')
 
         if idn is not None and database is not None:
-            self.read_from_database_table(database, idn)
+            if mongo:
+                self.read_from_database_collection(database, idn)
+            else:
+                self.read_from_database_table(database, idn)
         elif filename is not None:
             self.read_file(filename)
 
