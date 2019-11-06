@@ -12,7 +12,7 @@ import numpy as _np
 
 
 class Galil():
-    """Galil control and communictations class."""
+    """Galil DMC-4183-D4140 with  control and communictations class."""
 
     def __init__(self):
         self.motors = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H']
@@ -112,19 +112,19 @@ class Galil():
             print(_traceback.print_exc(file=_sys.stdout))
             return False
 
-    def configure_stepper(self, motor=0, mtype=-2, spd=0, ac=0, steps=200,
-                          usteps=64, ld=3):
+    def configure_stepper(self, motor=0, mtype=-2, current=1, spd=0,
+                          ac=0, steps=200, usteps=64, ld=3):
         """Configures stepper motors on the controller.
 
         Args:
             motor (int): motor to be configured selection (0 to 7);
             mtype (float): motor type (-2 for stepper, -2.5 for reverse
                            direction stepper;
+            current (int): 0 for 0.5 A, 1 for 1 A, 2 for 2 A, 3 for 3 A;
             spd (int): motor speed value (counts/s);
             ac (int): motor acceleration/deceleration value (counts/s^2);
             steps (int): motor steps/rev;
-            usteps (int): list of motor step division (1, 2, 4, 16 or 64
-                          usteps/step).
+            usteps (int): list of motor step division (1 or 64 usteps/step).
             ld (int): 0 for both limit switches enabled;
                       1 for forward limit disabled;
                       2 for backward limit disabled;
@@ -139,6 +139,8 @@ class Galil():
             motor = self.motors[motor]
             # MT configures motor type
             msg = msg + 'MT' + motor + '=' + str(mtype) + '; '
+            # AG configures motor current
+            msg = msg + 'AG' + motor + '=' + str(current) + '; '
             # SP configures velocity
             msg = msg + 'SP' + motor + '=' + str(spd) + '; '
             # AC/DC configures acceleration/deceleration
