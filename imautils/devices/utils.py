@@ -5,7 +5,7 @@ import logging as _logging
 import visa as _visa
 import serial as _serial
 import minimalmodbus as _minimalmodbus
-
+import serial.tools.list_ports as _list_ports
 
 class GPIBInterface():
     """Class for communication with GPIB devices."""
@@ -14,7 +14,6 @@ class GPIBInterface():
         """Initiaze all variables and prepare log.
 
         Args:
-        ----
             log (bool): True to use event logging, False otherwise.
 
         """
@@ -48,13 +47,11 @@ class GPIBInterface():
         """Connect to a GPIB device with the given address.
 
         Args:
-        ----
             address (int): device address,
             board (int): gpib board (default 0),
             timeout (int): timeout in milliseconds (default 1000).
 
-        Return:
-        ------
+        Returns:
             True if successful, False otherwise.
 
         """
@@ -95,11 +92,9 @@ class GPIBInterface():
         """Write string message to the device and check size of the answer.
 
         Args:
-        ----
             command (str): command to be executed by the device.
 
-        Return:
-        ------
+        Returns:
             True if successful, False otherwise.
 
         """
@@ -119,8 +114,7 @@ class GPIBInterface():
         Stop reading when termination is detected.
         Tries to read from device, if timeout occurs, returns empty string.
 
-        Return:
-        ------
+        Returns:
             the string read from the device.
 
         """
@@ -141,8 +135,7 @@ class GPIBInterface():
         Stop reading when termination is detected.
         Tries to read from device, if timeout occurs, returns empty string.
 
-        Return:
-        ------
+        Returns:
             the string read from the device.
 
         """
@@ -172,7 +165,6 @@ class SerialInterface():
         """Initiaze all variables and prepare log.
 
         Args:
-        ----
             log (bool): True to use event logging, False otherwise.
 
         """
@@ -203,7 +195,6 @@ class SerialInterface():
         """Connect to a serial port.
 
         Args:
-        ----
             port (str): device port,
             baudrate (int): device baudrate,
             bytesize (int): bytesize (default 8),
@@ -211,8 +202,7 @@ class SerialInterface():
             parity (str): parity (default 'N'),
             timeout (int): timeout in seconds (default 1).
 
-        Return:
-        ------
+        Returns:
             True if successful.
 
         """
@@ -245,11 +235,9 @@ class SerialInterface():
         """Write string message to the device and check size of the answer.
 
         Args:
-        ----
             command (str): command to be executed by the device.
 
-        Return:
-        ------
+        Returns:
             True if successful, False otherwise.
 
         """
@@ -272,8 +260,7 @@ class SerialInterface():
         Stop reading when termination is detected.
         Tries to read from device, if timeout occurs, returns empty string.
 
-        Return:
-        ------
+        Returns:
             the string read from the device.
 
         """
@@ -288,6 +275,27 @@ class SerialInterface():
                 self.logger.error('exception', exc_info=True)
             return ''
 
+    def list_ports(self):
+        """Lists serial ports.
+
+        Returns:
+            list of serial ports."""
+        _l = _list_ports.comports()
+        _ports = []
+
+        _s = ''
+        _k = str
+        if 'COM' in _l[0][0]:
+            _s = 'COM'
+            _k = int
+
+        for key in _l:
+            _ports.append(key.device.strip(_s))
+        _ports.sort(key=_k)
+        _ports = [_s + key for key in _ports]
+
+        return _ports
+
 
 class ModBusInterface():
     """ModBus communication class."""
@@ -296,7 +304,6 @@ class ModBusInterface():
         """Initiaze all variables and prepare log.
 
         Args:
-        ----
             log (bool): True to use event logging, False otherwise.
 
         """
@@ -327,7 +334,6 @@ class ModBusInterface():
         """Connect to a serial port.
 
         Args:
-        ----
             port (str): device port,
             baudrate (int): device baudrate,
             slave_address (int): slave address in the range 1 to 247,
@@ -336,8 +342,7 @@ class ModBusInterface():
             parity (str): parity (default 'N'),
             timeout (int): timeout in seconds (default 1).
 
-        Return:
-        ------
+        Returns:
             True if successful.
 
         """
@@ -373,8 +378,7 @@ class ModBusInterface():
         Stop reading when termination is detected.
         Tries to read from device, if timeout occurs, returns empty string.
 
-        Return:
-        ------
+        Returns:
             the string read from the device.
 
         """
