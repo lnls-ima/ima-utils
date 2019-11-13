@@ -294,6 +294,8 @@ class SerialInterface():
         _ports.sort(key=_k)
         _ports = [_s + key for key in _ports]
 
+        return _ports
+
 
 class ModBusInterface():
     """ModBus communication class."""
