@@ -1,9 +1,15 @@
 # -*- coding: utf-8 -*-
 """Pmac Lib."""
 
-import win32com.client as _client
-import win32com.shell.shell as _shell
+import sys as _sys
 import logging as _logging
+
+
+if _sys.platform == 'win32':
+    import win32com.client as _client
+    import win32com.shell.shell as _shell
+else:
+    raise NotImplementedError('This Pmac module only works on windows.')
 
 
 class PmacCommands():
