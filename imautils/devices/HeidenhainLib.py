@@ -108,19 +108,24 @@ def Heidenhain_factory(baseclass):
     class Heidenhain(baseclass):
         """Heidenhain Display."""
 
-        def __init__(self, log=False):
+        def __init__(self, model='ND-780', log=False):
             """Initiaze all variables and prepare log.
 
             Args:
-            ----
+                model (str):  device model, 'ND-780' (default) or 'ND-760'.
                 log (bool): True to use event logging, False otherwise.
 
             """
             self.commands = HeidenhainCommands()
+            self.model = model
             super().__init__(log=log)
 
         def write_display_value(self, axis, value, wait=0.2):
-            """Write value to display."""
+            """Write value to display.
+
+            axis (int): axis to be written; 0 for X, 1 for Y and 2 for Z.
+            value (float): value to be written.
+            wait (float): time to wait after writting the value."""
             aux = str(abs(value))
             nchar = len(aux)
 
@@ -169,7 +174,15 @@ def Heidenhain_factory(baseclass):
             self.send_command(self.commands.ent)
 
         def send_key(self, key, wait=0.2):
-            """Send key."""
+            """Send key.
+
+            Args:
+                key (str):  key (command) to be sent.
+                wait (float): time to wait before reading (in seconds).
+
+            Returns:
+                string containing the response;
+                False if failed."""
             try:
                 self.send_command(key)
                 _time.sleep(wait)
@@ -178,8 +191,14 @@ def Heidenhain_factory(baseclass):
             except Exception:
                 return False
 
-        def read_display(self, model, wait=0.2):
-            """Read value from display."""
+        def read_display(self, model=None, wait=0.2):
+            """Read value from display.
+
+            Args:
+                model (str):  device model, 'ND-780' (default) or 'ND-760'.
+                wait (float): time to wait before reading (in seconds)."""
+            if model is None:
+                model = self.model
             readings = None
             if model == 'ND-780':
                 readings = self.read_display_ND780(wait=wait)
@@ -188,7 +207,13 @@ def Heidenhain_factory(baseclass):
             return readings
 
         def read_display_ND760(self, wait=0.2):
-            """Read values from display ND760."""
+            """Read values from display ND760.
+
+            Args:
+                wait (float): time to wait before reading (in seconds).
+
+            Returns:
+                tuple containing the reading values in float"""
             try:
                 self.send_command(self.commands.current_value)
                 _time.sleep(wait)
@@ -216,30 +241,46 @@ def Heidenhain_factory(baseclass):
             return (reading1, reading2, reading3)
 
         def read_display_ND780(self, wait=0.2):
-            """Read values from display ND780."""
+            """Read values from display ND780.
+
+            Args:
+                wait (float): time to wait before reading (in seconds).
+
+            Returns:
+                tuple containing the reading values in float."""
             try:
                 self.send_command(self.commands.current_value)
                 _time.sleep(wait)
-                reading = self.read_from_device()
+                _reading = self.read_from_device().split(' R\r\n')
 
-                aux1 = reading[reading.find('X=')+2:reading.find(' R\r\n')]
-                aux1 = aux1.replace(' ', '')
+                _aux1 = _reading[0][_reading[0].find('X=') + 2:]
+                _aux1 = _aux1.replace(' ', '')
 
-                reading = reading[reading.find('R\r\n')+3:]
-                aux2 = reading[reading.find('Y=')+2:reading.find(' R\r\n')]
-                aux2 = aux2.replace(' ', '')
+                _aux2 = _reading[1][_reading[1].find('Y=') + 2:]
+                _aux2 = _aux2.replace(' ', '')
 
-                reading1 = float(aux1)
-                reading2 = float(aux2)
+                _aux3 = _reading[2][_reading[2].find('Z=') + 2:]
+                _aux3 = _aux3.replace(' ', '')
+
+                _reading1 = float(_aux1)
+                _reading2 = float(_aux2)
+                _reading3 = float(_aux3)
 
             except Exception:
-                reading1 = _np.nan
-                reading2 = _np.nan
+                _reading1 = _np.nan
+                _reading2 = _np.nan
+                _reading3 = _np.nan
 
-            return (reading1, reading2)
+            return (_reading1, _reading2, _reading3)
 
         def clean_string(self, reading):
-            """Clean string."""
+            """Clean string.
+
+            Args:
+                reading (str): string to be cleaned.
+
+            Retruns:
+                the cleaned string."""
             reading = reading.replace('\'', '')
             reading = reading.replace('\\x82', '')
             reading = reading.replace('\\x8d', '')
@@ -249,7 +290,10 @@ def Heidenhain_factory(baseclass):
             return reading
 
         def reset_set_ref(self, wait=0.2):
-            """Reset reference."""
+            """Reset reference.
+
+            Args:
+                wait (float): time to wait before reading (in seconds)."""
             self.send_command(self.commands.resetcounter)
             _time.sleep(4)
             self.send_command(self.commands.ent)
