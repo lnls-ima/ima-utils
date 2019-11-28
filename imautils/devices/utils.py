@@ -7,6 +7,7 @@ import serial as _serial
 import minimalmodbus as _minimalmodbus
 import serial.tools.list_ports as _list_ports
 
+
 class GPIBInterface():
     """Class for communication with GPIB devices."""
 

@@ -1,676 +1,384 @@
 # -*- coding: utf-8 -*-
 
-"""Implementation of functions to handle database records."""
+"""Implementation of functions to handle database documents."""
 
-import os as _os
-import json as _json
-import sqlite3 as _sqlite
-import numpy as _np
+import collections as _collections
 
-from . import utils as _utils
+from . import sqlitedatabase as _sqlitedatabase
+from . import mongodatabase as _mongodatabase
 
 
-_empty_str = '--'
+class Database():
+    """API for MongoDB or Sqlite database."""
 
-
-class DatabaseError(Exception):
-    """Database exception."""
-
-    def __init__(self, message, *args):
-        """Initialize object."""
-        self.message = message
-
-
-class DatabaseObject():
-    """Database object."""
-
-    _db_table = ''
-    _db_dict = {}
-    # Example of _db_dict:
-    # _db_dict = _collections.OrderedDict([
-    #     ('attribute_name', {
-    #         'column': 'column_name', 'dtype': str, 'not_null': True}),
-    # ])
-
-    @staticmethod
-    def database_exists(database):
-        """Check if database file exists.
+    def __init__(
+            self, database_name=None, mongo=True, server='localhost'):
+        """Initialize the object and connect to Mongo server, if applicable.
 
         Args:
-        ----
-            database (str): full file path to database.
-
-        Return:
-        ------
-            True if database file exists, False otherwise.
+            database_name (str): database name.
+            mongo (bool): flag indicating mongoDB (True) or sqlite (False).
+            server (str): MongoDB server.
 
         """
-        return _os.path.isfile(database)
+        self.database_name = database_name
+        self.mongo = mongo
+        self._server = server
 
-    @classmethod
-    def create_database_table(cls, database, table=None):
-        """Create database table.
-
-        Args:
-        ----
-            database (str): full file path to database.
-            table (str, optional): database table name.
-
-        Return:
-        ------
-            True if successful, False otherwise.
-
-        """
-        if table is None:
-            table = cls._db_table
-
-        if len(table) == 0:
-            return False
-
-        variables = []
-        variables.append(['id', 'INTEGER NOT NULL'])
-        variables.append(['date', 'TEXT NOT NULL'])
-        variables.append(['hour', 'TEXT NOT NULL'])
-
-        for attr_name in cls._db_dict:
-            column = cls._db_dict[attr_name]['column']
-            dtype = cls._db_dict[attr_name]['dtype']
-            not_null = cls._db_dict[attr_name]['not_null']
-
-            if dtype == int:
-                db_type = 'INTEGER'
-            elif dtype == float:
-                db_type = 'REAL'
-            elif dtype == str:
-                db_type = 'TEXT'
-            elif dtype in (_np.ndarray, list, tuple, dict):
-                db_type = 'TEXT'
-            else:
-                raise DatabaseError('Unknown database type.')
-
-            if not_null:
-                db_type = db_type + ' NOT NULL'
-
-            variables.append((column, db_type))
-
-        try:
-            con = _sqlite.connect(database)
-            cur = con.cursor()
-
-            cmd = 'CREATE TABLE IF NOT EXISTS {0} ('.format(table)
-            for var in variables:
-                cmd = cmd + "\'{0}\' {1},".format(var[0], var[1])
-            cmd = cmd + "PRIMARY KEY(\'id\'));"
-            cur.execute(cmd)
-            con.close()
-            return True
-
-        except Exception:
-            con.close()
-            return False
-
-    @classmethod
-    def database_table_exists(cls, database, table=None):
-        """Check if table exists in database.
-
-        Args:
-        ----
-            database (str): full file path to database.
-            table (str, optional): database table name.
-
-        Return:
-        ------
-            True if the table exists, False otherwise.
-
-        """
-        if table is None:
-            table = cls._db_table
-
-        if len(table) == 0:
-            return False
-
-        if not cls.database_exists(database):
-            return False
-
-        con = _sqlite.connect(database)
-        cur = con.cursor()
-        cur.execute("PRAGMA TABLE_INFO({0})".format(table))
-        if len(cur.fetchall()) > 0:
-            con.close()
-            return True
+        if self.mongo:
+            self.client = _mongodatabase.connect(server=self._server)
         else:
-            con.close()
-            return False
+            self.client = None
 
-    @classmethod
-    def get_database_table_name(cls):
-        """Return the database table name."""
-        return cls._db_table
+    @property
+    def server(self):
+        """Return the MongoDB server."""
+        if self.mongo:
+            return self._server
+        else:
+            return None
 
-    @classmethod
-    def get_database_table_value(cls, database, column, idn, table=None):
-        """Get column value from entry id.
+    @server.setter
+    def server(self, value):
+        self._server = value
+        if self.mongo:
+            self.client = _mongodatabase.connect(server=self._server)
 
-        Args:
-        ----
-            database (str): full file path to database.
-            column (str): column name.
-            idn (int): entry id.
-            table (str, optional): database table name.
+    def database_exists(self):
+        """Check if database exists.
 
-        Return:
-        ------
-            the parameter value.
+        Returns:
+            True if database exists, False otherwise.
 
         """
-        if table is None:
-            table = cls._db_table
+        if self.mongo:
+            if self.client is None:
+                self.client = _mongodatabase.connect(server=self._server)
+            return _mongodatabase.database_exists(
+                self.client, self.database_name)
+        else:
+            return _sqlitedatabase.database_exists(
+                self.database_name)
 
-        if not cls.database_table_exists(database, table):
-            return None
+    def get_collections(self):
+        """Get database collection names.
 
-        if len(cls.get_database_table_column_names(database, table)) == 0:
-            return None
+        Returns:
+            a list with collection names.
 
-        con = _sqlite.connect(database)
-        cur = con.cursor()
+        """
+        if self.mongo:
+            if self.client is None:
+                self.client = _mongodatabase.connect(server=self._server)
+            return _mongodatabase.get_collections(
+                self.client, self.database_name)
+        else:
+            return _sqlitedatabase.get_tables(self.database_name)
 
-        try:
-            cur.execute('SELECT {0} FROM {1} WHERE id = ?'.format(
-                column, table), (idn,))
-            value = cur.fetchone()[0]
-            con.close()
-            return value
-        except Exception:
-            con.close()
-            return None
 
-    @classmethod
-    def get_database_table_last_id(cls, database, table=None):
-        """Return the last id of the database table.
+class DatabaseCollection(Database):
+    """API for MongoDB collection or Sqlite database table."""
+
+    def __init__(
+            self, database_name=None, collection_name=None,
+            mongo=True, server='localhost'):
+        """Initialize the object and connect to Mongo server, if applicable.
 
         Args:
-        ----
-            database (str): full file path to database.
-            table (str, optional): database table name.
+            database_name (str): database name.
+            collection_name (str): database collection name.
+            mongo (bool): flag indicating mongoDB (True) or sqlite (False).
+            server (str): MongoDB server.
 
-        Return:
-        ------
+        """
+        self.collection_name = collection_name
+        super().__init__(
+            database_name=database_name, mongo=mongo, server=server)
+
+    def collection_exists(self):
+        """Check if the collection exists in database.
+
+        Returns:
+            True if the collection exists, False otherwise.
+
+        """
+        if self.mongo:
+            if self.client is None:
+                self.client = _mongodatabase.connect(server=self.server)
+            return _mongodatabase.collection_exists(
+                self.client, self.database_name, self.collection_name)
+        else:
+            return _sqlitedatabase.table_exists(
+                self.database_name, self.collection_name)
+
+    def create_collection(self):
+        """Create collection, with id as ascending index."""
+        if self.mongo:
+            if self.client is None:
+                self.client = _mongodatabase.connect(server=self.server)
+            return _mongodatabase.create_collection(
+                self.client, self.database_name, self.collection_name)
+        else:
+            msg = 'Empty tables are not supported in SQLite'
+            raise NotImplementedError(msg)
+
+    def get_field_names(self):
+        """Return the field names of the last collection's document.
+
+        Take care when using this function with Mongo since MongoDB is
+        a no-SQL database, it doesn't require all documents (entries) to
+        have the same fields. Each document can have it's own fields
+        independent from the other documents inside the collection, which
+        may be different from the last document's fields.
+
+        Returns:
+            a list with the last document's field names.
+
+        """
+        if self.mongo:
+            if self.client is None:
+                self.client = _mongodatabase.connect(server=self.server)
+            return _mongodatabase.get_field_names(
+                self.client, self.database_name, self.collection_name)
+        else:
+            return _sqlitedatabase.get_column_names(
+                self.database_name, self.collection_name)
+
+    def get_field_types(self):
+        """Return the field types of the last collection's document.
+
+        Take care when using this function with Mongo since MongoDB is
+        a no-SQL database, it doesn't require all documents (entries) to have
+        the same fields or types. Each document can have it's own fields
+        independent from the other documents inside the collection, which may
+        be different from the last document's fields and types.
+
+        Returns:
+            a dict with field names and types.
+
+        """
+        if self.mongo:
+            if self.client is None:
+                self.client = _mongodatabase.connect(server=self.server)
+            return _mongodatabase.get_field_types(
+                self.client, self.database_name, self.collection_name)
+        else:
+            return _sqlitedatabase.get_column_types(
+                self.database_name, self.collection_name)
+
+    def get_first_id(self):
+        """Return the first document's id.
+
+        Returns:
             a id.
 
         """
-        if table is None:
-            table = cls._db_table
+        if self.mongo:
+            if self.client is None:
+                self.client = _mongodatabase.connect(server=self.server)
+            return _mongodatabase.get_first_id(
+                self.client, self.database_name, self.collection_name)
+        else:
+            return _sqlitedatabase.get_first_id(
+                self.database_name, self.collection_name)
 
-        if not cls.database_table_exists(database, table):
-            return None
+    def get_last_id(self):
+        """Return the last document's id.
 
-        con = _sqlite.connect(database)
-        cur = con.cursor()
-
-        try:
-            cur.execute('SELECT MAX(id) FROM {0}'.format(table))
-            idn = cur.fetchone()[0]
-            con.close()
-            return idn
-        except Exception:
-            return None
-
-    @classmethod
-    def get_database_table_column_names(cls, database, table=None):
-        """Return the column names of the database table.
-
-        Args:
-        ----
-            database (str): full file path to database.
-            table (str, optional): database table name.
-
-        Return:
-        ------
-            a list with table column names.
+        Returns:
+            a id.
 
         """
-        if table is None:
-            table = cls._db_table
+        if self.mongo:
+            if self.client is None:
+                self.client = _mongodatabase.connect(server=self.server)
+            return _mongodatabase.get_last_id(
+                self.client, self.database_name, self.collection_name)
+        else:
+            return _sqlitedatabase.get_last_id(
+                self.database_name, self.collection_name)
 
-        if not cls.database_table_exists(database, table):
-            return []
-
-        con = _sqlite.connect(database)
-        cur = con.cursor()
-        cur.execute("PRAGMA TABLE_INFO({0})".format(table))
-        info = cur.fetchall()
-        column_names = [i[1] for i in info]
-        con.close()
-        return column_names
-
-    @classmethod
-    def get_database_table_column_types(cls, database, table=None):
-        """Return the column types of the database table.
+    def get_values(self, field):
+        """Return field values of the database collection.
 
         Args:
-        ----
-            database (str): full file path to database.
-            table (str, optional): database table name.
+            field (str): field name.
 
-        Return:
-        ------
-            a dict with column names and types.
+        Returns:
+            a list of field values.
 
         """
-        if table is None:
-            table = cls._db_table
+        if self.mongo:
+            if self.client is None:
+                self.client = _mongodatabase.connect(server=self.server)
+            return _mongodatabase.get_values(
+                self.client, self.database_name, self.collection_name, field)
+        else:
+            return _sqlitedatabase.get_values(
+                self.database_name, self.collection_name, field)
 
-        if not cls.database_table_exists(database, table):
-            return []
-
-        db_type_dict = {
-            'INTEGER': int,
-            'REAL': float,
-            'TEXT': str,
-            }
-
-        con = _sqlite.connect(database)
-        cur = con.cursor()
-        cur.execute("PRAGMA TABLE_INFO({0})".format(table))
-        info = cur.fetchall()
-        con.close()
-
-        column_types = {}
-        for i in info:
-            column_types[i[1]] = db_type_dict[i[2]]
-
-        return column_types
-
-    @classmethod
-    def get_database_table_column(cls, database, column, table=None):
-        """Return column values of the database table.
+    def get_value(self, field, idn):
+        """Get field value from entry id.
 
         Args:
-        ----
-            database (str): full file path to database.
-            column (str): column name.
-            table (str, optional): database table name.
+            field (str): field name.
+            idn (int): entry id.
+
+        Returns:
+            the parameter value.
 
         """
-        if table is None:
-            table = cls._db_table
+        if self.mongo:
+            if self.client is None:
+                self.client = _mongodatabase.connect(server=self.server)
+            return _mongodatabase.get_value(
+                self.client, self.database_name,
+                self.collection_name, field, idn)
+        else:
+            return _sqlitedatabase.get_value(
+                self.database_name, self.collection_name, field, idn)
 
-        if not cls.database_table_exists(database, table):
-            return []
-
-        con = _sqlite.connect(database)
-        cur = con.cursor()
-        cur.execute('SELECT {0} FROM {1}'.format(column, table))
-        column = [d[0] for d in cur.fetchall()]
-        con.close()
-        return column
-
-    @classmethod
-    def search_database_table_column(cls, database, column, value, table=None):
-        """Search column in database table.
+    def search_field(self, field, value):
+        """Search field in database collection.
 
         Args:
-        ----
-            database (str): full file path to database.
-            column (str): column to search.
-            value (str): value to search.
-            table (str, optional): database table name.
+            field (str): field to search.
+            value (value_type): value to search.
 
-        Return:
-        ------
+        Returns:
             a list of database entries.
 
         """
-        if table is None:
-            table = cls._db_table
+        if self.mongo:
+            if self.client is None:
+                self.client = _mongodatabase.connect(server=self.server)
+            return _mongodatabase.search_field(
+                self.client, self.database_name,
+                self.collection_name, field, value)
+        else:
+            return _sqlitedatabase.search_column(
+                self.database_name, self.collection_name, field, value)
 
-        if not cls.database_table_exists(database, table):
-            return []
-
-        if len(cls.get_database_table_column_names(database, table)) == 0:
-            return []
-
-        con = _sqlite.connect(database)
-        cur = con.cursor()
-
-        try:
-            cmd = 'SELECT * FROM {0} WHERE {1}="{2}"'.format(
-                table, column, str(value))
-            cur.execute(cmd)
-            entries = cur.fetchall()
-            con.close()
-            return entries
-        except Exception:
-            con.close()
-            return []
-
-    @classmethod
-    def filter_database_table_columns(
-            cls, database, columns, filters,
-            initial_idn=None, max_nr_lines=None, table=None):
-        """Search paremeter in database.
+    def search_collection(
+            self, fields, filters=None, initial_idn=None, max_nr_lines=None):
+        """Filter collection entries.
 
         Args:
-        ----
-            database (str): full file path to database.
-            columns (list): list of column names to filter.
-            filters (list): list of filters to apply.
+            fields (list): list of field names to filter.
+            filters (list, optional): list of filters to apply (must have the
+                                      same lengh as 'fields').
             initial_idn (int, optional): initial id to start filter.
             max_nr_lines (int, optional): maximum number of lines.
-            table (str, optional): database table name.
 
-        Return:
-        ------
+        Returns:
             a list of database entries.
 
         """
-        if table is None:
-            table = cls._db_table
-
-        try:
-            column_names_str = ''
-            for column in columns:
-                column_names_str = column_names_str + '"{0:s}", '.format(
-                    column)
-            column_names_str = column_names_str[:-2]
-            cmd = 'SELECT {0:s} FROM {1:s}'.format(column_names_str, table)
-
-            column_types = cls.get_database_table_column_types(
-                database, table=table)
-
-            if any(filt != '' for filt in filters):
-                cmd = cmd + ' WHERE '
-
-            and_flag = False
-            for idx, column in enumerate(columns):
-                data_type = column_types[column]
-
-                filt = filters[idx]
-
-                if filt != '':
-
-                    if and_flag:
-                        cmd = cmd + ' AND '
-                    and_flag = True
-
-                    if data_type == str:
-                        cmd = cmd + column + ' LIKE "%' + filt + '%"'
-                    else:
-                        if '~' in filt:
-                            fs = filt.split('~')
-                            if len(fs) == 2:
-                                cmd = cmd + column + ' >= ' + fs[0]
-                                cmd = cmd + ' AND '
-                                cmd = cmd + column + ' <= ' + fs[1]
-                        elif filt.lower() == 'none' or filt.lower() == 'null':
-                            cmd = cmd + column + ' IS NULL'
-                        else:
-                            try:
-                                value = data_type(filt)
-                                cmd = cmd + column + ' = ' + str(value)
-                            except ValueError:
-                                cmd = cmd + column + ' ' + filt
-
-            if max_nr_lines is not None:
-                limit_str = ' LIMIT {0:d}'.format(max_nr_lines)
-            else:
-                limit_str = ''
-
-            if initial_idn is not None:
-                if 'WHERE' in cmd:
-                    cmd = (
-                        'SELECT * FROM (' + cmd +
-                        ' AND id >= {0:d}{1:s})'.format(
-                            initial_idn, limit_str))
-                else:
-                    cmd = (
-                        'SELECT * FROM (' + cmd +
-                        ' WHERE id >= {0:d}{1:s})'.format(
-                            initial_idn, limit_str))
-
-            else:
-                cmd = (
-                    'SELECT * FROM (' + cmd +
-                    ' ORDER BY id DESC{0:s}) ORDER BY id ASC'.format(
-                        limit_str))
-
-            con = _sqlite.connect(database)
-            cur = con.cursor()
-            cur.execute(cmd)
-            data = cur.fetchall()
-            con.close()
-            return data
-        except Exception:
-            con.close()
-            message = 'Could not filter values in table {0}.'.format(table)
-            raise DatabaseError(message)
-
-    def read_from_database_table(self, database, idn=None, table=None):
-        """Read a table entry from database.
-
-        Args:
-        ----
-            database (str): full file path to database.
-            idn (int, optional): entry id
-            table (str, optional): database table name.
-
-        """
-        if table is None:
-            table = self._db_table
-
-        if not self.database_table_exists(database, table):
-            raise DatabaseError('Invalid database table name.')
-
-        db_column_names = self.get_database_table_column_names(database, table)
-
-        con = _sqlite.connect(database)
-        cur = con.cursor()
-
-        try:
-            if idn is not None:
-                cur.execute(
-                    'SELECT * FROM {0} WHERE id = ?'.format(table), (idn,))
-            else:
-                cur.execute(
-                    """SELECT * FROM {0}\
-                    WHERE id = (SELECT MAX(id) FROM {0})""".format(table))
-            entry = cur.fetchone()
-            con.close()
-
-        except Exception:
-            con.close()
-            message = ('Could not retrieve data from {0}'.format(table))
-            raise DatabaseError(message)
-
-        for attr_name in self._db_dict:
-            column = self._db_dict[attr_name]['column']
-            dtype = self._db_dict[attr_name]['dtype']
-
-            if column not in db_column_names:
-                raise DatabaseError('Failed to read data from database.')
-
-            try:
-                idx = db_column_names.index(column)
-                if dtype in (_np.ndarray, list, tuple, dict):
-                    if entry[idx] is None:
-                        setattr(self, attr_name, entry[idx])
-                    else:
-                        _l = _json.loads(entry[idx])
-                        if dtype == _np.ndarray:
-                            setattr(self, attr_name, _utils.to_array(_l))
-                        else:
-                            setattr(self, attr_name, _l)
-                else:
-                    setattr(self, attr_name, entry[idx])
-            except AttributeError:
-                pass
-
-        if (hasattr(self, '_timestamp') and
-                'date' in db_column_names and 'hour' in db_column_names):
-            idx_date = db_column_names.index('date')
-            date = entry[idx_date]
-            idx_hour = db_column_names.index('hour')
-            hour = entry[idx_hour]
-            self._timestamp = '_'.join([date, hour])
-
-    def save_to_database_table(self, database, table=None):
-        """Insert values into database table.
-
-        Args:
-        ----
-            database (str): full file path to database.
-            table (str, optional): database table name.
-
-        Return:
-        ------
-            the id of the database record.
-
-        """
-        if table is None:
-            table = self._db_table
-
-        if len(table) == 0:
-            return None
-
-        if not self.database_table_exists(database, table):
-            raise DatabaseError('Invalid database table name.')
-
-        db_column_names = self.get_database_table_column_names(database, table)
-        if len(db_column_names) == 0:
-            raise DatabaseError('Failed to save data to database.')
-
-        if hasattr(self, '_timestamp') and self._timestamp is not None:
-            timestamp = self._timestamp.split('_')
+        if self.mongo:
+            if self.client is None:
+                self.client = _mongodatabase.connect(server=self.server)
+            return _mongodatabase.search_collection(
+                self.client, self.database_name, self.collection_name,
+                fields, filters, initial_idn=initial_idn,
+                max_nr_lines=max_nr_lines)
         else:
-            timestamp = _utils.get_timestamp().split('_')
+            return _sqlitedatabase.search_table(
+                self.database_name, self.collection_name,
+                fields, filters, initial_idn=initial_idn,
+                max_nr_lines=max_nr_lines)
 
-        values = []
-        values.append(None)
-        values.append(timestamp[0])
-        values.append(timestamp[1].replace('-', ':'))
 
-        for attr_name in self._db_dict:
-            column = self._db_dict[attr_name]['column']
-            dtype = self._db_dict[attr_name]['dtype']
+class DatabaseDocument(DatabaseCollection):
+    """Database document or record."""
 
-            if column not in db_column_names:
-                raise DatabaseError('Failed to save data to database.')
+    collection_name = ''
+    db_dict = _collections.OrderedDict([
+        ('idn', {'field': 'id', 'dtype': int, 'not_null': True}),
+        ('date', {'field': 'date', 'dtype': str, 'not_null': True}),
+        ('hour', {'field': 'hour', 'dtype': str, 'not_null': True}),
+    ])
+    # Example of db_dict:
+    # db_dict = _collections.OrderedDict([
+    #     ('attribute_name', {
+    #         'field': 'field_name', 'dtype': str, 'not_null': True}),
+    # ])
 
-            if dtype in (_np.ndarray, list, tuple, dict):
-                value = getattr(self, attr_name)
-                if value is None:
-                    values.append(value)
-                else:
-                    if isinstance(value, _np.ndarray):
-                        value = value.tolist()
-                    values.append(_json.dumps(value))
-            else:
-                values.append(getattr(self, attr_name))
-
-        if len(values) != len(db_column_names):
-            message = 'Inconsistent number of values for table {0}.'.format(
-                table)
-            raise DatabaseError(message)
-
-        _l = '(' + ','.join(['?']*len(values)) + ')'
-
-        con = _sqlite.connect(database)
-        cur = con.cursor()
-
-        try:
-            cur.execute(
-                ('INSERT INTO {0} VALUES '.format(table) + _l), values)
-            idn = cur.lastrowid
-            con.commit()
-            con.close()
-            return idn
-
-        except Exception:
-            con.close()
-            message = 'Could not insert values into table {0}.'.format(table)
-            raise DatabaseError(message)
-
-    def update_database_table(self, database, idn, table=None):
-        """Update a table entry from database.
+    def __init__(
+            self, database_name=None, idn=None,
+            mongo=True, server='localhost'):
+        """Initialize the object.
 
         Args:
-        ----
-            database (str): full file path to database.
+            database_name (str): database name.
+            idn (int): id in database table (sqlite) / collection (mongo).
+            mongo (bool): flag indicating mongoDB (True) or sqlite (False).
+            server (str): MongoDB server.
+
+        """
+        self.idn = idn
+        self.date = None
+        self.hour = None
+        super().__init__(
+            database_name=database_name,
+            collection_name=self.collection_name,
+            mongo=mongo,
+            server=server)
+
+    def create_collection(self):
+        """Create collection, with id as ascending index."""
+        if self.mongo:
+            if self.client is None:
+                self.client = _mongodatabase.connect(server=self.server)
+            return _mongodatabase.create_collection(
+                self.client, self.database_name, self.collection_name)
+        else:
+            return _sqlitedatabase.create_table(
+                self.database_name, self.collection_name, self.db_dict)
+
+    def save_to_database(self):
+        """Insert a document into a database collection.
+
+        Returns:
+            True if update was sucessful, False otherwise.
+
+        """
+        if self.mongo:
+            if self.client is None:
+                self.client = _mongodatabase.connect(server=self.server)
+            return _mongodatabase.save_to_database(self)
+        else:
+            return _sqlitedatabase.save_to_database(self)
+
+    def read_from_database(self, idn=None):
+        """Read a document (collection entry) from database.
+
+        Args:
+            idn (int, optional): entry id (returns last id if not specified).
+
+        Returns:
+            True if update was sucessful, False otherwise.
+
+        """
+        if self.mongo:
+            if self.client is None:
+                self.client = _mongodatabase.connect(server=self.server)
+            return _mongodatabase.read_from_database(self, idn=idn)
+        else:
+            return _sqlitedatabase.read_from_database(self, idn=idn)
+
+    def update_database(self, idn):
+        """Update a collection's document from database.
+
+        Args:
             idn (int): entry id.
-            table (str, optional): database table name.
 
-        Return:
-        ------
-            True if update was sucessful.
-            False if update failed.
+        Returns:
+            True if update was sucessful, False if update failed.
 
         """
-        if table is None:
-            table = self._db_table
-
-        if len(table) == 0:
-            return False
-
-        if not self.database_table_exists(database, table):
-            raise DatabaseError('Invalid database table name.')
-
-        db_column_names = self.get_database_table_column_names(database, table)
-        if len(db_column_names) == 0:
-            raise DatabaseError('Failed to save data to database.')
-
-        if hasattr(self, '_timestamp') and self._timestamp is not None:
-            timestamp = self._timestamp
+        if self.mongo:
+            if self.client is None:
+                self.client = _mongodatabase.connect(server=self.server)
+            return _mongodatabase.update_database(self, idn)
         else:
-            timestamp = _utils.get_timestamp().split('_')
-
-        values = []
-        values.append(idn)
-        values.append(timestamp[0])
-        values.append(timestamp[1].replace('-', ':'))
-
-        updates = ''
-        updates = updates + '`id`' + '=?, '
-        updates = updates + '`date`' + '=?, '
-        updates = updates + '`hour`' + '=?, '
-
-        for attr_name in self._db_dict:
-            column = self._db_dict[attr_name]['column']
-            dtype = self._db_dict[attr_name]['dtype']
-
-            if column not in db_column_names:
-                raise DatabaseError('Failed to read data from database.')
-
-            updates = updates + '`' + column + '`' + '=?, '
-            if dtype in (_np.ndarray, list, tuple, dict):
-                value = getattr(self, attr_name)
-                if value is None:
-                    values.append(value)
-                else:
-                    if isinstance(value, _np.ndarray):
-                        value = value.tolist()
-                    values.append(_json.dumps(value))
-            else:
-                values.append(getattr(self, attr_name))
-
-        # strips last ', ' from updates
-        updates = updates[:-2]
-
-        try:
-            con = _sqlite.connect(database)
-            cur = con.cursor()
-
-            if idn is not None:
-                cur.execute("""UPDATE {0} SET {1} WHERE
-                            id = {2}""".format(table, updates, idn), values)
-                con.commit()
-                con.close()
-                return True
-            else:
-                message = 'Invalid entry id.'
-                raise DatabaseError(message)
-
-        except Exception:
-            con.close()
-            message = ('Could not update {0} entry.'.format(table))
-            raise DatabaseError(message)
+            return _sqlitedatabase.update_database(self, idn)

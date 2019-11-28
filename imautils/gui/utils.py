@@ -3,28 +3,13 @@
 """Utils."""
 
 import numpy as _np
-import serial.tools.list_ports as _list_ports
 from qtpy.QtWidgets import (
-    QWidget as _QWidget,
     QComboBox as _QComboBox,
     QListView as _QListView,
     QVBoxLayout as _QVBoxLayout,
 )
 from qtpy.QtCore import Qt as _Qt
 from qtpy.QtGui import QStandardItemModel as _QStandardItemModel
-from matplotlib.figure import Figure as _Figure
-from matplotlib.backends.qt_compat import is_pyqt5 as _is_pyqt5
-
-if _is_pyqt5():
-    from matplotlib.backends.backend_qt5agg import (
-        FigureCanvas as _FigureCanvas,
-        NavigationToolbar2QT as _Toolbar,
-        )
-else:
-    from matplotlib.backends.backend_qt4agg import (
-        FigureCanvas as _FigureCanvas,
-        NavigationToolbar2QT as _Toolbar,
-        )
 
 
 class CheckableComboBox(_QComboBox):
@@ -205,41 +190,3 @@ class DraggableLegend():
             'button_release_event', button_release_callback)
         self.canvas.mpl_connect(
             'motion_notify_event', motion_notify_callback)
-
-
-class MatplotlibWidget(_QWidget):
-    """Matplotlib Widget."""
-
-    def __init__(self):
-        """Initialize figure canvas."""
-        super().__init__()
-        self.figure = _Figure()
-        self.canvas = _FigureCanvas(self.figure)
-        self.toolbar = _Toolbar(self.canvas, self)
-        _layout = _QVBoxLayout()
-        _layout.addWidget(self.canvas)
-        _layout.addWidget(self.toolbar)
-        self.setLayout(_layout)
-
-
-def add_serial_ports_to_combo_box(combo_box):
-    """Add avaliable serial ports as combo box items."""
-    combo_box.clear()
-
-    unsorted_ports = [p[0] for p in _list_ports.comports()]
-    if len(unsorted_ports) == 0:
-        return
-
-    _s = ''
-    _k = str
-    if 'COM' in unsorted_ports[0]:
-        _s = 'COM'
-        _k = int
-
-    ports = []
-    for key in unsorted_ports:
-        ports.append(key.strip(_s))
-    ports.sort(key=_k)
-    ports = [_s + key for key in ports]
-
-    combo_box.addItems(ports)

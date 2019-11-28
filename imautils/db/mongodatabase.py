@@ -2,579 +2,653 @@
 
 import numpy as _np
 import pymongo as _pymongo
+
 from . import utils as _utils
 
-_empty_str = '--'
 
-
-class DatabaseError(Exception):
-    """Database exception."""
+class MongoDatabaseError(Exception):
+    """Monog database exception."""
 
     def __init__(self, message, *args):
         """Initialize object."""
         self.message = message
 
 
-class MongoDatabase():
-    """MongoDB class."""
+def connect(server='localhost'):
+    """Connect to a MongoDB server.
 
-    _db_collection = ''
-    _db_dict = {}
-    # Example of _db_dict:
-    # _db_dict = _collections.OrderedDict([
-    #     ('attribute_name', {
-    #         'field': 'field_name', 'dtype': str, 'not_null': True}),
-    # ])
-    # obs: this class also accepts an 'column' instead of 'field' for SQLite
-    #      combatibility.
-    _filter_dict = {'=': '$eq',
-                    '!=': '$ne',
-                    '<>': '$ne',
-                    '>': '$gt',
-                    '>=': '$gte',
-                    '<': '$lt',
-                    '<=': '$lte'}
+    Returns:
+        a MongoClient instance.
 
-    def connect(self, server='localhost'):
-        """Connects to a MongoDB server.
+    """
+    return _pymongo.MongoClient(server)
 
-        Returns:
-            True if connection was successful, False otherwise.
-        """
-        try:
-            for _attr_name in self._db_dict:
-                if 'field' not in self._db_dict[_attr_name].keys():
-                    self._db_dict[_attr_name]['field'] = (
-                        self._db_dict[_attr_name]['column'])
-            # creates _db_collection if there's only _db_table
-            if self._db_collection == '' and self._db_table != '':
-                self._db_collection = self._db_table
 
-            self.client = _pymongo.MongoClient(server)
-            return True
-        except Exception:
-            return False
+def database_exists(client, database_name):
+    """Check if database exists.
 
-    def mongo_database_exists(self, database):
-        """Check if database file exists.
+    Args:
+        client (MongoClient): a MongoClient instance.
+        database_name (str): database name.
 
-        Args:
-            database (str): database name.
+    Returns:
+        True if database exists, False otherwise.
 
-        Returns:
-            True if database file exists, False otherwise.
+    """
+    return database_name in client.list_database_names()
 
-        """
 
-        if database in self.client.list_database_names():
-            return True
-        else:
-            return False
+def get_collections(client, database_name):
+    """Get collection names.
 
-    def create_database_collection(self, database, collection=None):
-        """Create collection, with id as ascending index."""
-        if collection is None:
-            collection = self._db_collection
-        if len(collection) == 0:
-            return False
+    Args:
+        client (MongoClient): a MongoClient instance.
+        database_name (str): database name.
 
-        if not self.database_collection_exists(database, collection):
-            _db = self.client[database]
-            _col = getattr(_db, collection)
-            _col.create_index([('id', _pymongo.ASCENDING)], unique=True)
+    Returns:
+        a list of collection names.
 
-    def database_collection_exists(self, database, collection):
-        """Check if table exists in database.
+    """
+    return client[database_name].list_collection_names()
 
-        Args:
-            database (str): database name.
-            collection (str, optional): database collection name.
 
-        Returns:
-            True if the table exists, False otherwise.
+def collection_exists(client, database_name, collection_name):
+    """Check if collection exists in database.
 
-        """
-        _db = self.client[database]
-        if collection in _db.list_collection_names():
-            return True
-        else:
-            return False
+    Args:
+        client (MongoClient): a MongoClient instance.
+        database_name (str): database name.
+        collection_name (str): database collection name.
 
-    def get_database_collection_name(self):
-        """Return the database table name."""
-        return self._db_collection
+    Returns:
+        True if the collection exists, False otherwise.
 
-    def get_database_collection_value(self, database, field, idn,
-                                      collection=None):
-        """Get field value from entry id.
+    """
+    return collection_name in client[database_name].list_collection_names()
 
-        Args:
-            database (str): database name.
-            field (str): field name.
-            idn (int): entry id.
-            collection (str, optional): database table name.
 
-        Returns:
-            the parameter value.
+def create_collection(client, database_name, collection_name):
+    """Create collection, with id as ascending index.
 
-        """
-        if collection is None:
-            collection = self._db_collection
+    Args:
+        client (MongoClient): a MongoClient instance.
+        database_name (str): database name.
+        collection_name (str): database collection name.
 
-        if not self.database_collection_exists(database, collection):
-            return None
+    Returns:
+        True if the collection exists, False otherwise.
 
-        if len(self.get_database_collection_field_names(database,
-                                                        collection)) == 0:
-            return None
+    """
+    if len(collection_name) == 0:
+        return False
 
-        try:
-            _db = self.client[database]
-            _col = getattr(_db, collection)
-            _doc = _col.find_one({'id': idn})
+    if not collection_exists(client, database_name, collection_name):
+        _db = client[database_name]
+        _col = getattr(_db, collection_name)
+        _col.create_index([('id', _pymongo.ASCENDING)], unique=True)
 
-            return _doc[field]
-        except Exception:
-            return None
+    return True
 
-    def get_database_collection_last_id(self, database, collection=None):
-        """Returns the last inserted document's id.
 
-        Args:
-            database (str): database name.
-            collection (str, optional): database collection name.
+def get_field_names(client, database_name, collection_name):
+    """Return the field names of the last collection's document.
 
-        Returns:
-            an ObjectId.
+    Take care when using this function since MongoDB is a no-SQL database,
+    it doesn't require all documents (entries) to have the same fields.
+    Each document can have it's own fields idependent from the other documents
+    inside the collection, which may be different from the last document's
+    fields.
 
-        """
-        if collection is None:
-            collection = self._db_collection
+    Args:
+        client (MongoClient): a MongoClient instance.
+        database_name (str): database name.
+        collection_name (str): database collection name.
 
-        if not self.database_collection_exists(database, collection):
-            return None
+    Returns:
+        a list with the last document's field names.
 
-        try:
-            _db = self.client[database]
-            _col = getattr(_db, collection)
-            _cursor = _col.find().sort('_id', _pymongo.DESCENDING)
-            _doc = _cursor.next()
-            _cursor.close()
+    """
+    if not collection_exists(client, database_name, collection_name):
+        return []
 
-            return _doc['id']
-        except Exception:
-            _message = "Could not find last collection's document."
-            raise DatabaseError(_message)
+    try:
+        _db = client[database_name]
+        _col = getattr(_db, collection_name)
+        _cursor = _col.find().sort('_id', _pymongo.DESCENDING)
+        _doc = _cursor.next()
+        _cursor.close()
+        _list = list(_doc.keys())
+        _list.remove('_id')
 
-    def get_database_collection_field_names(self, database, collection=None):
-        """Return the field names of the last collection's doctument. Take care
-        when using this function since MongoDB is a no-SQL database, it doesn't
-        require all documents (entries) to have the same fields. Each document
-        can have it's own fields idependent from the other documents inside the
-        collection, which may be different from the last document's fields.
+        return _list
+    except Exception:
+        _message = "Could not find last collection's document."
+        raise MongoDatabaseError(_message)
 
-        Args:
-            database (str): database name.
-            collection (str, optional): database collection name.
 
-        Returns:
-            a list with the last document's field names.
-        """
-        if collection is None:
-            collection = self._db_collection
-        if not self.database_collection_exists(database, collection):
-            return []
+def get_field_types(client, database_name, collection_name):
+    """Return the field types of the last collection's document.
 
-        try:
-            _db = self.client[database]
-            _col = getattr(_db, collection)
-            _cursor = _col.find().sort('_id', _pymongo.DESCENDING)
-            _doc = _cursor.next()
-            _cursor.close()
-            _list = list(_doc.keys())
-            _list.remove('_id')
+    Take care when using this function since MongoDB is a no-SQL database,
+    it doesn't require all documents (entries) to have the same fields os
+    types. Each document can have it's own fields independent from the other
+    documents inside the collection, which may be different from the last
+    document's fields and types.
 
-            return _list
-        except Exception:
-            _message = "Could not find last collection's document."
-            raise DatabaseError(_message)
+    Args:
+        client (MongoClient): a MongoClient instance.
+        database_name (str): database name.
+        collection_name (str): database collection name.
 
-    def get_database_collection_field_types(self, database, collection=None):
-        """Return the field types of the last collection's doctument. Take care
-        when using this function since MongoDB is a no-SQL database, it doesn't
-        require all documents (entries) to have the same fields os types. Each
-        document can have it's own fields idependent from the other documents
-        inside the collection, which may be different from the last document's
-        fields and types.
+    Returns:
+        a dict with field names and types.
 
-        Args:
-            database (str): database name.
-            collection (str, optional): database collection name.
+    """
+    if not collection_exists(client, database_name, collection_name):
+        return []
 
-        Returns:
-            a dict with field names and types.
-        """
-        if collection is None:
-            collection = self._db_collection
-        if not self.database_collection_exists(database, collection):
-            return []
+    try:
+        _db = client[database_name]
+        _col = getattr(_db, collection_name)
+        _cursor = _col.find().sort('_id', _pymongo.DESCENDING)
+        _doc = _cursor.next()
+        _cursor.close()
 
-        try:
-            _db = self.client[database]
-            _col = getattr(_db, collection)
-            _cursor = _col.find().sort('_id', _pymongo.DESCENDING)
-            _doc = _cursor.next()
-            _cursor.close()
+        _field_types = {}
+        for _field in _doc:
+            _field_types[_field] = type(_doc[_field])
+        return _field_types
+    except Exception:
+        _message = "Could not find last collection's document."
+        raise MongoDatabaseError(_message)
 
-            _field_types = {}
-            for _field in _doc:
-                _field_types[_field] = type(_doc[_field])
-            return _field_types
-        except Exception:
-            _message = "Could not find last collection's document."
-            raise DatabaseError(_message)
 
-    def get_database_collection_field(self, database, fields, collection=None):
-        """Return field values of the database table.
+def get_first_id(client, database_name, collection_name):
+    """Return the first inserted document's id.
 
-        Args:
-            database (str): database name.
-            fields (str or list): string containing the field name or a list of
-                                  field names.
-            collection (str, optional): database collection name.
+    Args:
+        client (MongoClient): a MongoClient instance.
+        database_name (str): database name.
+        collection_name (str): database collection name.
 
-        Returns:
-            a list of field values.
-        """
-        if collection is None:
-            collection = self._db_table
+    Returns:
+        an id.
 
-        if not self.database_collection_exists(database, collection):
-            return []
+    """
+    if not collection_exists(client, database_name, collection_name):
+        return None
 
-        if isinstance(fields, str):
-            fields = [fields]
+    try:
+        _db = client[database_name]
+        _col = getattr(_db, collection_name)
+        _cursor = _col.find().sort('_id', _pymongo.ASCENDING)
+        _doc = _cursor.next()
+        _cursor.close()
 
-        try:
-            _db = self.client[database]
-            _col = getattr(_db, collection)
-            _cursor = _col.find(projection=fields)
-            _docs = list(_cursor)
-            _cursor.close()
-        except Exception:
-            _message = "Failed while trying to retrieve collection fields."
-            raise DatabaseError(_message)
+        return _doc['id']
+    except Exception:
+        _message = "Could not find last collection's document."
+        raise MongoDatabaseError(_message)
 
+
+def get_last_id(client, database_name, collection_name):
+    """Return the last inserted document's id.
+
+    Args:
+        client (MongoClient): a MongoClient instance.
+        database_name (str): database name.
+        collection_name (str): database collection name.
+
+    Returns:
+        an id.
+
+    """
+    if not collection_exists(client, database_name, collection_name):
+        return None
+
+    try:
+        _db = client[database_name]
+        _col = getattr(_db, collection_name)
+        _cursor = _col.find().sort('_id', _pymongo.DESCENDING)
+        _doc = _cursor.next()
+        _cursor.close()
+
+        return _doc['id']
+    except Exception:
+        _message = "Could not find last collection's document."
+        raise MongoDatabaseError(_message)
+
+
+def get_values(client, database_name, collection_name, field):
+    """Return field values of the database table.
+
+    Args:
+        client (MongoClient): a MongoClient instance.
+        database_name (str): database name.
+        collection_name (str): database collection name.
+        field (str): string containing the field name.
+
+    Returns:
+        a list of field values.
+
+    """
+    if not collection_exists(client, database_name, collection_name):
+        return []
+
+    try:
+        _db = client[database_name]
+        _col = getattr(_db, collection_name)
+        _cursor = _col.find(projection=[field])
+        _docs = list(_cursor)
+        _values = [doc[field] for doc in _docs]
+        _cursor.close()
+    except Exception:
+        _message = "Failed while trying to retrieve collection fields."
+        raise MongoDatabaseError(_message)
+
+    return _values
+
+
+def get_value(client, database_name, collection_name, field, idn):
+    """Get field value from entry id.
+
+    Args:
+        client (MongoClient): a MongoClient instance.
+        database_name (str): database name.
+        collection_name (str): database collection name.
+        field (str): field name.
+        idn (int): entry id.
+
+    Returns:
+        the parameter value.
+
+    """
+    if not collection_exists(client, database_name, collection_name):
+        return None
+
+    if len(get_field_names(client, database_name, collection_name)) == 0:
+        return None
+
+    try:
+        _db = client[database_name]
+        _col = getattr(_db, collection_name)
+        _doc = _col.find_one({'id': idn})
+
+        return _doc[field]
+    except Exception:
+        return None
+
+
+def search_field(client, database_name, collection_name, field, value):
+    """Search field in database collection.
+
+    Args:
+        client (MongoClient): a MongoClient instance.
+        database_name (str): database name.
+        collection_name (str): database collection name.
+        field (str): field to search.
+        value (value_type): value to search.
+
+    Returns:
+        a list of dicts with database entries.
+
+    """
+    if not collection_exists(client, database_name, collection_name):
+        return []
+
+    if len(get_field_names(client, database_name, collection_name)) == 0:
+        return []
+
+    try:
+        _db = client[database_name]
+        _col = getattr(_db, collection_name)
+        _cursor = _col.find({field: value})
+        _docs = list(_cursor)
+        _cursor.close()
         return _docs
+    except Exception:
+        _message = "Failed to search for collection field values."
+        raise MongoDatabaseError(_message)
 
-    def search_database_collection_field(self, database, field, value,
-                                         collection=None):
-        """Search field in database collection.
 
-        Args:
-            database (str): database name.
-            field (str): field to search.
-            value (value_type): value to search.
-            collection (str, optional): database collection name.
+def search_collection(
+        client, database_name, collection_name, fields, filters=None,
+        initial_idn=None, max_nr_lines=None):
+    """Filter collection entries.
 
-        Returns:
-            a list of database entries.
+    Args:
+        client (MongoClient): a MongoClient instance.
+        database_name (str): database name.
+        collection_name (str): database collection name.
+        fields (list): list of field names to filter.
+        filters (list, optional): list of filters to apply (must have the same
+                                  lengh as 'fields').
+        initial_idn (int, optional): initial id to start filter.
+        max_nr_lines (int, optional): maximum number of lines.
 
-        """
-        if collection is None:
-            collection = self._db_collection
+    Returns:
+        a list of dicts with database entries.
 
-        if not self.database_collection_exists(database, collection):
-            return []
+    """
+    filter_dict = {
+        '=': '$eq',
+        '!=': '$ne',
+        '<>': '$ne',
+        '>': '$gt',
+        '>=': '$gte',
+        '<': '$lt',
+        '<=': '$lte',
+    }
 
-        if len(self.get_database_collection_field_names(database,
-                                                        collection)) == 0:
-            return []
+    try:
+        _field_types = get_field_types(client, database_name, collection_name)
 
-        try:
-            _db = self.client[database]
-            _col = getattr(_db, collection)
-            _cursor = _col.find({field: value})
-            _docs = list(_cursor)
-            _cursor.close()
-            return _docs
-        except Exception:
-            _message = "Failed to search for collection field values."
-            raise DatabaseError(_message)
+        if max_nr_lines is None:
+            _limit = 0
+        else:
+            _limit = max_nr_lines
 
-    def filter_database_collection_fields(self, database, fields, filters,
-                                          initial_idn=None, max_nr_lines=None,
-                                          collection=None):
-        """Search paremeter in database.
+        _min = None
+        if initial_idn is not None:
+            _min = {'id': initial_idn}
 
-        Args:
-            database (str): full file path to database.
-            fields (list): list of field names to filter.
-            filters (list): list of filters to apply (must have the same lengh
-                            as 'fields').
-            initial_idn (int, optional): initial id to start filter.
-            max_nr_lines (int, optional): maximum number of lines.
-            collection (str, optional): database collection name.
+        if filters is None:
+            filters_list = []
+        else:
+            filters_list = [str(f) for f in filters]
 
-        Returns:
-            a list of database documents (entries).
+        _filters_dict = {}
+        for i, _f in enumerate(filters_list):
+            _data_type = _field_types[fields[i]]
+            _f = _f.replace(' ', '')
 
-        """
-        if collection is None:
-            collection = self._db_collection
+            _split_str = None
+            if '~' in _f:
+                _split_str = '~'
+                _split = _f.split('~')
+                _filters_dict[fields[i]] = {
+                    '$gte': float(_split[0]),
+                    '$lte': float(_split[1])}
+            elif '>=' in _f:
+                _split_str = '>='
+            elif '<=' in _f:
+                _split_str = '<='
+            elif '<>' in _f:
+                _split_str = '<>'
+            elif '>' in _f:
+                _split_str = '>'
+            elif '<' in _f:
+                _split_str = '<'
+            elif '!=' in _f:
+                _split_str = '!='
+            elif '=' in _f:
+                _split_str = '='
 
-        try:
-            _field_types = self.get_database_collection_field_types(
-                database, collection=collection)
-
-            if max_nr_lines is None:
-                _limit = 0
-            else:
-                _limit = max_nr_lines
-
-            _min = None
-            if initial_idn is not None:
-                _min = ['id', initial_idn]
-
-            _filters = {}
-            for i in range(len(filters)):
-                _data_type = _field_types[fields[i]]
-                filters[i] = filters[i].replace(' ', '')
-
-                _split_str = None
-                if '~' in filters[i]:
-                    _split_str = '~'
-                    _split = filters[i].split('~')
-                    _filters[fields[i]] = {'$gte': float(_split[0]),
-                                           '$lte': float(_split[1])}
-                elif '>=' in filters[i]:
-                    _split_str = '>='
-                elif '<=' in filters[i]:
-                    _split_str = '<='
-                elif '<>' in filters[i]:
-                    _split_str = '<>'
-                elif '>' in filters[i]:
-                    _split_str = '>'
-                elif '<' in filters[i]:
-                    _split_str = '<'
-                elif '!=' in filters[i]:
-                    _split_str = '!='
-                elif '=' in filters[i]:
-                    _split_str = '='
-
-                if _split_str is not '~':
-                    if _split_str is not None:
-                        _operator = self._filter_dict[_split_str]
-                        _split = filters[i].split(_split_str)[1]
+            if _split_str != '~':
+                if _split_str is not None:
+                    _operator = filter_dict[_split_str]
+                    _split = _f.split(_split_str)[1]
+                else:
+                    if _data_type is str:
+                        _operator = '$regex'
                     else:
-                        if _data_type is str:
-                            _operator = '$regex'
-                        else:
-                            _operator = '$eq'
-                        _split = filters[i]
+                        _operator = '$eq'
+                    _split = _f
 
+                if len(_split) != 0:
                     if 'none' in _split.lower():
                         _value = None
                     else:
                         _value = _data_type(_split)
-                    _filters[fields[i]] = {_operator: _value}
+                    _filters_dict[fields[i]] = {_operator: _value}
 
-            _db = self.client[database]
-            _col = getattr(_db, collection)
-            _cursor = _col.find(filter=_filters, limit=_limit, min=_min)
-            _docs = list(_cursor)
+        _db = client[database_name]
+        _col = getattr(_db, collection_name)
+        if len(filters_list) != 0:
+            _cursor = _col.find(
+                projection=fields,
+                filter=_filters_dict,
+                limit=_limit,
+                sort=[('id', -1)],
+                min=_min,
+                hint=[('id', 1)])
+        else:
+            _cursor = _col.find(
+                projection=fields,
+                limit=_limit,
+                sort=[('id', -1)],
+                min=_min,
+                hint=[('id', 1)])
+        _docs = list(_cursor)[::-1]
+        _cursor.close()
+        return _docs
+
+    except Exception:
+        _message = 'Could not filter values in collection {0}.'.format(
+            collection_name)
+        raise MongoDatabaseError(_message)
+
+
+def save_to_database(document):
+    """Insert a document into a database collection.
+
+    Args:
+        document: object derived from DatabaseDocument object.
+
+    Returns:
+        True if update was sucessful, False otherwise.
+
+    """
+    client = document.client
+    database_name = document.database_name
+    collection_name = document.collection_name
+    db_dict = document.db_dict
+
+    if len(collection_name) == 0:
+        return None
+
+    if not collection_exists(client, database_name, collection_name):
+        raise MongoDatabaseError('Invalid database collection name.')
+
+    reverse_db_dict = {}
+    for k, v in db_dict.items():
+        reverse_db_dict[v['field']] = k
+
+    _db = client[database_name]
+    _col = getattr(_db, collection_name)
+
+    if _col.estimated_document_count() != 0:
+        _db_field_names = get_field_names(
+            client, database_name, collection_name)
+        _id = get_last_id(client, database_name, collection_name)
+        _id = _id + 1
+    else:
+        if 'id' in reverse_db_dict.keys():
+            _db_field_names = []
+        else:
+            _db_field_names = ['id']
+        for _item in db_dict:
+            _db_field_names.append(db_dict[_item]['field'])
+        _id = 1
+
+    if len(_db_field_names) == 0:
+        raise MongoDatabaseError('Failed to save data to database.')
+
+    _values = {}
+
+    timestamp_split = _utils.get_timestamp().split('_')
+    date = timestamp_split[0]
+    hour = timestamp_split[1].replace('-', ':')
+
+    if 'id' in reverse_db_dict.keys():
+        setattr(document, reverse_db_dict['id'], _id)
+    else:
+        _values['id'] = _id
+
+    if 'date' in reverse_db_dict.keys():
+        if getattr(document, reverse_db_dict['date']) is None:
+            setattr(document, reverse_db_dict['date'], date)
+
+    if 'hour' in reverse_db_dict.keys():
+        if getattr(document, reverse_db_dict['hour']) is None:
+            setattr(document, reverse_db_dict['hour'], hour)
+
+    for _attr_name in db_dict:
+        _field = db_dict[_attr_name]['field']
+
+        if _field not in _db_field_names:
+            print(_field, _db_field_names)
+            raise MongoDatabaseError('Failed to save data to database.')
+
+        _value = getattr(document, _attr_name)
+        if isinstance(_value, _np.ndarray):
+            _value = _value.tolist()
+        _values[_field] = _value
+
+    if len(_values) != len(_db_field_names):
+        print(len(_values), len(_db_field_names))
+        _message = 'Inconsistent number of values for collection \
+            {0}.'.format(collection_name)
+        raise MongoDatabaseError(_message)
+
+    try:
+        _col.insert_one(_values)
+        return True
+    except Exception:
+        _message = 'Could not insert values into collection {0}.'.format(
+            collection_name)
+        raise MongoDatabaseError(_message)
+
+
+def read_from_database(document, idn=None):
+    """Read a document (collection entry) from database.
+
+    Args:
+        document: object derived from DatabaseDocument object.
+        idn (int, optional): entry id (returns last id if not specified).
+
+    Returns:
+        True if update was sucessful, False otherwise.
+
+    """
+    client = document.client
+    database_name = document.database_name
+    collection_name = document.collection_name
+    db_dict = document.db_dict
+
+    if not collection_exists(client, database_name, collection_name):
+        raise MongoDatabaseError('Invalid database collection name.')
+
+    _db_field_names = get_field_names(client, database_name, collection_name)
+
+    try:
+        _db = client[database_name]
+        _col = getattr(_db, collection_name)
+        if idn is not None:
+            _doc = _col.find_one({'id': idn})
+        else:
+            _cursor = _col.find().sort('_id', _pymongo.DESCENDING)
+            _doc = _cursor.next()
             _cursor.close()
-            return _docs
-        except Exception:
-            _message = 'Could not filter values in collection {0}.'.format(
-                collection)
-            raise DatabaseError(_message)
+    except Exception:
+        _message = ('Could not retrieve data from {0}'.format(collection_name))
+        raise MongoDatabaseError(_message)
 
-    def read_from_database_collection(self, database, idn=None,
-                                      collection=None):
-        """Read a document (collection entry) from database.
+    for _attr_name in db_dict:
+        _field = db_dict[_attr_name]['field']
+        _dtype = db_dict[_attr_name]['dtype']
 
-        Args:
-            database (str): database name.
-            idn (int, optional): entry id (returns last id if not specified).
-            collection (str, optional): database collection name.
-
-        """
-        if collection is None:
-            collection = self._db_collection
-
-        if not self.database_collection_exists(database, collection):
-            raise DatabaseError('Invalid database collection name.')
-
-        _db_field_names = self.get_database_collection_field_names(
-            database, collection)
+        if _field not in _db_field_names:
+            raise MongoDatabaseError('Failed to read data from database.')
 
         try:
-            _db = self.client[database]
-            _col = getattr(_db, collection)
-            if idn is not None:
-                _doc = _col.find_one({'id': idn})
+            _value = _doc[_field]
+            if _dtype == _np.ndarray:
+                setattr(document, _attr_name, _utils.to_array(_value))
             else:
-                _cursor = _col.find().sort('_id', _pymongo.DESCENDING)
-                _doc = _cursor.next()
-                _cursor.close()
-        except Exception:
-            _message = ('Could not retrieve data from {0}'.format(collection))
-            raise DatabaseError(_message)
+                setattr(document, _attr_name, _value)
+        except AttributeError:
+            pass
 
-        for _attr_name in self._db_dict:
-            _field = self._db_dict[_attr_name]['field']
-            _dtype = self._db_dict[_attr_name]['dtype']
+    if (hasattr(document, 'timestamp') and
+            'date' in _db_field_names and 'hour' in _db_field_names):
+        _date = _doc['date']
+        _hour = _doc['hour']
+        document.timestamp = '_'.join([_date, _hour])
 
-            if _field not in _db_field_names:
-                raise DatabaseError('Failed to read data from database.')
+    return True
 
-            try:
-                _value = _doc[_field]
-                if _dtype == _np.ndarray:
-                    setattr(self, _attr_name, _utils.to_array(_value))
-                else:
-                    setattr(self, _attr_name, _value)
-            except AttributeError:
-                pass
 
-        if (hasattr(self, '_timestamp') and
-                'date' in _db_field_names and 'hour' in _db_field_names):
-            _date = _doc['date']
-            _hour = _doc['hour']
-            self._timestamp = '_'.join([_date, _hour])
+def update_database(document, idn):
+    """Update a collection's document from database.
 
-    def save_to_database_collection(self, database, collection=None):
-        """Insert a doctument into a database collection.
+    Args:
+        document: object derived from DatabaseDocument object.
+        idn (int): entry id.
 
-        Args:
-            database (str): database name.
-            collection (str, optional): database collection name.
+    Returns:
+        True if update was sucessful, False if update failed.
 
-        Returns:
-            the id of the inserted document.
+    """
+    client = document.client
+    database_name = document.database_name
+    collection_name = document.collection_name
+    db_dict = document.db_dict
 
-        """
-        if collection is None:
-            collection = self._db_collection
+    if len(collection_name) == 0:
+        return False
 
-        if len(collection) == 0:
-            return None
+    if not collection_exists(client, database_name, collection_name):
+        raise MongoDatabaseError('Invalid database collection name.')
 
-        if not self.database_collection_exists(database, collection):
-            raise DatabaseError('Invalid database collection name.')
+    _db_field_names = get_field_names(client, database_name, collection_name)
+    if len(_db_field_names) == 0:
+        raise MongoDatabaseError('Failed to update database.')
 
-        _db = self.client[database]
-        _col = getattr(_db, collection)
+    _values = {}
 
-        if _col.estimated_document_count() != 0:
-            _db_field_names = self.get_database_collection_field_names(
-                database, collection)
-            _id = self.get_database_collection_last_id(database, collection)
-            _id = _id + 1
+    reverse_db_dict = {}
+    for k, v in db_dict.items():
+        reverse_db_dict[v['field']] = k
+
+    timestamp_split = _utils.get_timestamp().split('_')
+    date = timestamp_split[0]
+    hour = timestamp_split[1].replace('-', ':')
+
+    if 'id' in reverse_db_dict.keys():
+        setattr(document, reverse_db_dict['id'], idn)
+
+    if 'date' in reverse_db_dict.keys():
+        if getattr(document, reverse_db_dict['date']) is None:
+            setattr(document, reverse_db_dict['date'], date)
+
+    if 'hour' in reverse_db_dict.keys():
+        if getattr(document, reverse_db_dict['hour']) is None:
+            setattr(document, reverse_db_dict['hour'], hour)
+
+    for _attr_name in db_dict:
+        _field = db_dict[_attr_name]['field']
+
+        if _field not in _db_field_names:
+            raise MongoDatabaseError('Failed to read data from database.')
+
+        _value = getattr(document, _attr_name)
+        if isinstance(_value, _np.ndarray):
+            _value = _value.tolist()
+        _values[_field] = _value
+
+    try:
+        _db = client[database_name]
+        _col = getattr(_db, collection_name)
+
+        if idn is not None:
+            _col.update_one({'id': idn},
+                            {'$set': _values})
+            return True
         else:
-            _db_field_names = ['id', 'date', 'hour']
-            for _item in self._db_dict:
-                _db_field_names.append(self._db_dict[_item]['field'])
-            _id = 0
+            _message = 'Invalid entry id.'
+            raise MongoDatabaseError(_message)
 
-        if len(_db_field_names) == 0:
-            raise DatabaseError('Failed to save data to database.')
-
-        if hasattr(self, '_timestamp') and self._timestamp is not None:
-            _timestamp = self._timestamp.split('_')
-        else:
-            _timestamp = _utils.get_timestamp().split('_')
-
-        _values = {'id': _id,
-                   'date': _timestamp[0],
-                   'hour': _timestamp[1]}
-
-        for _attr_name in self._db_dict:
-            _field = self._db_dict[_attr_name]['field']
-            _dtype = self._db_dict[_attr_name]['dtype']
-
-            if _field not in _db_field_names:
-                print(_field, _db_field_names)
-                raise DatabaseError('Failed to save data to database.')
-
-            _value = getattr(self, _attr_name)
-            if isinstance(_value, _np.ndarray):
-                _value = _value.tolist()
-            _values[_field] = _value
-
-        if len(_values) != len(_db_field_names):
-            print(len(_values), len(_db_field_names))
-            _message = 'Inconsistent number of values for collection \
-                {0}.'.format(collection)
-            raise DatabaseError(_message)
-
-        try:
-            _col.insert_one(_values)
-        except Exception:
-            _message = 'Could not insert values into collection {0}.'.format(
-                collection)
-            raise DatabaseError(_message)
-
-    def update_database_collection(self, database, idn, collection=None):
-        """Update a collection's document from database.
-
-        Args:
-            database (str): database name.
-            idn (int): entry id.
-            collection (str, optional): database collection name.
-
-        Returns:
-            True if update was sucessful.
-            False if update failed.
-
-        """
-        if collection is None:
-            collection = self._db_collection
-
-        if len(collection) == 0:
-            return False
-
-        if not self.database_collection_exists(database, collection):
-            raise DatabaseError('Invalid database collection name.')
-
-        _db_field_names = self.get_database_collection_field_names(database,
-                                                                   collection)
-        if len(_db_field_names) == 0:
-            raise DatabaseError('Failed to save data to database.')
-
-        if hasattr(self, '_timestamp') and self._timestamp is not None:
-            _timestamp = self._timestamp
-        else:
-            _timestamp = _utils.get_timestamp().split('_')
-
-        _values = {'date': _timestamp[0],
-                   'hour': _timestamp[1]}
-
-        for _attr_name in self._db_dict:
-            _field = self._db_dict[_attr_name]['field']
-            _dtype = self._db_dict[_attr_name]['dtype']
-
-            if _field not in _db_field_names:
-                raise DatabaseError('Failed to read data from database.')
-
-            _value = getattr(self, _attr_name)
-            if isinstance(_value, _np.ndarray):
-                _value = _value.tolist()
-            _values[_field] = _value
-
-        try:
-            _db = self.client[database]
-            _col = getattr(_db, collection)
-
-            if idn is not None:
-                _col.update_one({'id': idn},
-                                {'$set': _values})
-                return True
-            else:
-                _message = 'Invalid entry id.'
-                raise DatabaseError(_message)
-
-        except Exception:
-            _message = ('Could not update {0} entry.'.format(collection))
-            raise DatabaseError(_message)
+    except Exception:
+        _message = ('Could not update {0} entry.'.format(collection_name))
+        raise MongoDatabaseError(_message)

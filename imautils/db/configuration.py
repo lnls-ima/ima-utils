@@ -4,10 +4,10 @@
 
 import json as _json
 import numpy as _np
+import collections as _collections
 
 from . import utils as _utils
 from . import database as _database
-from . import mongodatabase as _mongodatabase
 
 
 _empty_str = '--'
@@ -21,37 +21,38 @@ class ConfigurationError(Exception):
         self.message = message
 
 
-class Configuration(_database.DatabaseObject,
-                    _mongodatabase.MongoDatabase):
+class Configuration(_database.DatabaseDocument):
     """Base class for configurations."""
 
-    _label = ''
-    _db_table = ''
-    _db_collection = ''
-    _db_dict = {}
-    # Example of _db_dict:
-    # _db_dict = _collections.OrderedDict([
-    #     ('attribute_name', {
-    #         'column': 'column_name', 'dtype': str, 'not_null': True}),
-    # ])
+    collection_name = ''
+    db_dict = _collections.OrderedDict([
+        ('idn', {'field': 'id', 'dtype': int, 'not_null': True}),
+        ('date', {'field': 'date', 'dtype': str, 'not_null': True}),
+        ('hour', {'field': 'hour', 'dtype': str, 'not_null': True}),
+    ])
 
-    def __init__(self, filename=None, database=None, idn=None, mongo=False):
+    def __init__(
+            self, filename=None, database_name=None, idn=None,
+            mongo=True, server='localhost'):
         """Initialize obejct.
 
         Args:
             filename (str): connection configuration filepath.
-            database (str): database file path (sqlite)/ database name (mongo).
+            database_name (str): database file path (sqlite) or name (mongo).
             idn (int): id in database table (sqlite) / collection (mongo).
             mongo (bool): flag indicating mongoDB (True) or sqlite (False).
+            server (str): MongoDB server.
+
         """
+        super().__init__(
+            database_name=database_name, idn=idn, mongo=mongo, server=server)
+
         if filename is not None and idn is not None:
             raise ValueError('Invalid arguments for Configuration object.')
 
-        if idn is not None and database is not None:
-            if mongo:
-                self.read_from_database_collection(database, idn)
-            else:
-                self.read_from_database_table(database, idn)
+        if idn is not None and database_name is not None:
+            self.read_from_database()
+
         elif filename is not None:
             self.read_file(filename)
 
@@ -94,10 +95,10 @@ class Configuration(_database.DatabaseObject,
 
     def __setattr__(self, name, value):
         """Set attribute."""
-        if name not in self._db_dict:
+        if name not in self.db_dict:
             super(Configuration, self).__setattr__(name, value)
         else:
-            tp = self._db_dict[name]['dtype']
+            tp = self.db_dict[name]['dtype']
             if value is None or isinstance(value, tp):
                 super(Configuration, self).__setattr__(name, value)
             elif tp == float and isinstance(value, int):
@@ -155,8 +156,8 @@ class Configuration(_database.DatabaseObject,
 
         """
         data = _utils.read_file(filename)
-        for name in self._db_dict:
-            tp = self._db_dict[name]['dtype']
+        for name in self.db_dict:
+            tp = self.db_dict[name]['dtype']
             value_str = _utils.find_value(data, name)
             if value_str == _empty_str:
                 setattr(self, name, None)
@@ -181,14 +182,14 @@ class Configuration(_database.DatabaseObject,
                     line = "# {0:s}\n\n".format(self._label)
                     f.write(line)
 
-                for name in self._db_dict:
+                for name in self.db_dict:
                     value = getattr(self, name)
 
                     if value is None:
                         value = _empty_str
 
                     else:
-                        tp = self._db_dict[name]['dtype']
+                        tp = self.db_dict[name]['dtype']
                         if tp in (_np.ndarray, list, tuple, dict):
                             if tp == _np.ndarray:
                                 value = value.tolist()
@@ -208,6 +209,6 @@ class Configuration(_database.DatabaseObject,
     def valid_data(self):
         """Check if parameters are valid."""
         al = [
-            getattr(self, name) for name in self._db_dict
-            if self._db_dict[name]['not_null']]
+            getattr(self, name) for name in self.db_dict
+            if self.db_dict[name]['not_null']]
         return all([a is not None for a in al])
