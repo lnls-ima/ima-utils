@@ -293,7 +293,7 @@ class EthernetCom():
         try:
             _bench1 = 'TCPIP0::FDI2056-0004::inst0::INSTR'
             _bench2 = 'TCPIP0::FDI2056-0005::inst0::INSTR'
-            _bench3 = 'TCPIP0::FDI2056-0020::inst0::INSTR'
+            _bench3 = 'TCPIP0::FDI2056-0031::inst0::INSTR'
             if bench == 1:
                 _name = _bench1
             elif bench == 2:

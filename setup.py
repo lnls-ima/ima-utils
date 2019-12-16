@@ -24,6 +24,7 @@ setup(
         'paramiko',
         'matplotlib',
         'qtpy',
+        'pymongo',
     ],
     package_data={'imautils': ['VERSION']},
     include_package_data=True,

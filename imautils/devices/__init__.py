@@ -15,6 +15,7 @@ from . import pydrs
 from . import utils
 
 
-import sys as _sys
-if _sys.platform == 'win32':
+try:
     from . import PmacLib
+except ModuleNotFoundError:
+    pass

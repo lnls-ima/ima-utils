@@ -570,12 +570,6 @@ def read_from_database(document, idn=None):
         except AttributeError:
             pass
 
-    if (hasattr(document, 'timestamp') and
-            'date' in _db_field_names and 'hour' in _db_field_names):
-        _date = _doc['date']
-        _hour = _doc['hour']
-        document.timestamp = '_'.join([_date, _hour])
-
     return True
 
 

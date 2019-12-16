@@ -23,14 +23,11 @@ class ConfigurationError(Exception):
 
 class Configuration(_database.DatabaseDocument):
     """Base class for configurations."""
-
+    
+    label = ''
     collection_name = ''
-    db_dict = _collections.OrderedDict([
-        ('idn', {'field': 'id', 'dtype': int, 'not_null': True}),
-        ('date', {'field': 'date', 'dtype': str, 'not_null': True}),
-        ('hour', {'field': 'hour', 'dtype': str, 'not_null': True}),
-    ])
-
+    db_dict = {}
+    
     def __init__(
             self, filename=None, database_name=None, idn=None,
             mongo=True, server='localhost'):
@@ -45,7 +42,7 @@ class Configuration(_database.DatabaseDocument):
 
         """
         super().__init__(
-            database_name=database_name, idn=idn, mongo=mongo, server=server)
+            database_name=database_name, mongo=mongo, server=server)
 
         if filename is not None and idn is not None:
             raise ValueError('Invalid arguments for Configuration object.')
@@ -127,7 +124,7 @@ class Configuration(_database.DatabaseDocument):
     def default_filename(self):
         """Return the default filename."""
         timestamp = _utils.get_timestamp()
-        filename = '{0:1s}_{1:1s}.txt'.format(timestamp, self._label)
+        filename = '{0:1s}_{1:1s}.txt'.format(timestamp, self.label)
         return filename
 
     def clear(self):
@@ -177,15 +174,25 @@ class Configuration(_database.DatabaseDocument):
             raise ConfigurationError(message)
 
         try:
+            timestamp_split = _utils.get_timestamp().split('_')
+            date = timestamp_split[0]
+            hour = timestamp_split[1].replace('-', ':')
+            
+            if hasattr(self, 'date') and self.date is None:
+                self.date = date
+
+            if hasattr(self, 'hour') and self.hour is None:
+                self.hour = hour
+            
             with open(filename, mode='w') as f:
-                if len(self._label) != 0:
-                    line = "# {0:s}\n\n".format(self._label)
+                if len(self.label) != 0:
+                    line = "# {0:s}\n\n".format(self.label)
                     f.write(line)
 
                 for name in self.db_dict:
                     value = getattr(self, name)
-
-                    if value is None:
+                    
+                    if value is None:                           
                         value = _empty_str
 
                     else:
@@ -210,5 +217,6 @@ class Configuration(_database.DatabaseDocument):
         """Check if parameters are valid."""
         al = [
             getattr(self, name) for name in self.db_dict
-            if self.db_dict[name]['not_null']]
+            if self.db_dict[name]['not_null']
+            and name not in ['idn', 'date', 'hour']]
         return all([a is not None for a in al])

@@ -291,12 +291,10 @@ class DatabaseCollection(Database):
 class DatabaseDocument(DatabaseCollection):
     """Database document or record."""
 
+    label = ''
     collection_name = ''
-    db_dict = _collections.OrderedDict([
-        ('idn', {'field': 'id', 'dtype': int, 'not_null': True}),
-        ('date', {'field': 'date', 'dtype': str, 'not_null': True}),
-        ('hour', {'field': 'hour', 'dtype': str, 'not_null': True}),
-    ])
+    db_dict = {}
+
     # Example of db_dict:
     # db_dict = _collections.OrderedDict([
     #     ('attribute_name', {
@@ -304,20 +302,15 @@ class DatabaseDocument(DatabaseCollection):
     # ])
 
     def __init__(
-            self, database_name=None, idn=None,
-            mongo=True, server='localhost'):
+            self, database_name=None, mongo=True, server='localhost'):
         """Initialize the object.
 
         Args:
             database_name (str): database name.
-            idn (int): id in database table (sqlite) / collection (mongo).
             mongo (bool): flag indicating mongoDB (True) or sqlite (False).
             server (str): MongoDB server.
 
         """
-        self.idn = idn
-        self.date = None
-        self.hour = None
         super().__init__(
             database_name=database_name,
             collection_name=self.collection_name,
