@@ -228,22 +228,23 @@ class EthernetCom(object):
             print(_traceback.print_exc(file=_sys.stdout))
             return False
 
-    def cfg_trigger_signal(self, position):
+    def cfg_trigger_signal(self, init_pos, add_pos):
         """Configures external trigger signal.
 
         Args:
-            position (int): trigger position (counts).
+            init_pos (int): trigger initial position (mm).
+            add_pos (int): trigger add position (mm).
 
         Returns:
             True if operation completed successfully;
             False otherwise."""
 
         try:
-            _msg = self.set_par('ComparePos', position)
+            _msg = self.set_par('ComparePos', init_pos*50000)
             self.write(_msg)
             self.read()
             _time.sleep(0.03)
-            _msg = self.set_par('CompAddDist', position)
+            _msg = self.set_par('CompAddDist', add_pos*50000)
             self.write(_msg)
             self.read()
             return True
