@@ -23,11 +23,11 @@ class ConfigurationError(Exception):
 
 class Configuration(_database.DatabaseDocument):
     """Base class for configurations."""
-    
+
     label = ''
     collection_name = ''
     db_dict = {}
-    
+
     def __init__(
             self, filename=None, database_name=None, idn=None,
             mongo=True, server='localhost'):
@@ -131,6 +131,7 @@ class Configuration(_database.DatabaseDocument):
         """Clear configuration."""
         for key in self.__dict__:
             self.__dict__[key] = None
+        return True
 
     def copy(self):
         """Return a copy of the object."""
@@ -166,6 +167,7 @@ class Configuration(_database.DatabaseDocument):
                 else:
                     value = _utils.find_value(data, name, vtype=tp)
                 setattr(self, name, value)
+        return True
 
     def save_file(self, filename):
         """Save configuration to file."""
@@ -177,13 +179,13 @@ class Configuration(_database.DatabaseDocument):
             timestamp_split = _utils.get_timestamp().split('_')
             date = timestamp_split[0]
             hour = timestamp_split[1].replace('-', ':')
-            
+
             if hasattr(self, 'date') and self.date is None:
                 self.date = date
 
             if hasattr(self, 'hour') and self.hour is None:
                 self.hour = hour
-            
+
             with open(filename, mode='w') as f:
                 if len(self.label) != 0:
                     line = "# {0:s}\n\n".format(self.label)
@@ -191,8 +193,8 @@ class Configuration(_database.DatabaseDocument):
 
                 for name in self.db_dict:
                     value = getattr(self, name)
-                    
-                    if value is None:                           
+
+                    if value is None:
                         value = _empty_str
 
                     else:
@@ -208,6 +210,7 @@ class Configuration(_database.DatabaseDocument):
 
                     line = '{0:s}\t{1}\n'.format(name.ljust(30), value)
                     f.write(line)
+            return True
 
         except Exception:
             message = 'Failed to save configuration to file: "%s"' % filename
