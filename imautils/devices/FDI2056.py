@@ -244,6 +244,10 @@ class EthernetCom():
         self.FDITriggerSource = "TRIG:SOUR ENC"
         # configures external trigger as trigger source
         self.FDITriggerSourceExt = "TRIG:SOUR EXT"
+        # configures timer as trigger source
+        self.FDITriggerSourceTim = "TRIG:SOUR TIM"
+        # configures the frequency of an internal periodic signal source [kHz]
+        self.FDITriggerTimRate = "TRIG:TIM "
         # configures number of triggers to complete a measurement
         self.FDITriggerCount = "TRIG:COUN "
         # number of enconder pulses to generate a trigger
@@ -281,6 +285,8 @@ class EthernetCom():
         self.FDIQues = "STAT:QUES?"
         # set operation complete bit
         self.FDIOpc = "*OPC"
+        # properly shuts the system down
+        self.FDIPowerOff = "SYST:POW OFF"
 
     def connect(self, bench=1):
         """Connects to FDI2056 integrator.
@@ -392,16 +398,35 @@ class EthernetCom():
         self.send(self.FDICalcFlux)
         self.send(self.FDIDisableTime)
 
-    def config_measurement_ext_trigger(self, gain, integration_points):
-        """Configures external trigger.
+    def main_settings(self, gain, source):
+        """Configures gain and trigger source.
 
         Args:
             gain (int): integrator gain.
-            integration_ponts (int): number of integration ponts per
-                measurement."""
+            source (str): trigger source."""
         self.send(self.FDIGain + str(gain))
-        self.send(self.FDITriggerSourceExt)
-        self.send(self.FDITriggerCount + str(integration_points))
+        if source == "External":
+            self.send(self.FDITriggerSourceExt)
+        elif source == "Timer":
+            self.send(self.FDITriggerSourceTim)
+
+    def config_trig_timer(self, rate, pts):
+        """Configures timer trigger.
+
+        Args:
+            rate (int): frequency of the internal periodic signal source[kHz].
+            pts (int): number of integration points per measurement."""
+        self.send(self.FDITriggerTimRate + str(rate))
+        self.send(self.FDITriggerCount + str(pts))
+        self.send(self.FDICalcFlux)
+        self.send(self.FDIDisableTime)
+
+    def config_trig_external(self, pts):
+        """Configures external trigger.
+
+        Args:
+            pts (int): number of integration points per measurement."""
+        self.send(self.FDITriggerCount + str(pts))
         self.send(self.FDICalcFlux)
         self.send(self.FDIDisableTime)
 
@@ -458,3 +483,7 @@ class EthernetCom():
         self.send(self.FDIEventEn + '255')
         self.send(self.FDIOperEn + '65535')
         self.send(self.FDIQuesEn + '65535')
+
+    def shut_down(self):
+        """Properly shuts the system down."""
+        self.send(self.FDIPowerOff)
