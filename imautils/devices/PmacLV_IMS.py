@@ -4,6 +4,9 @@ import sys as _sys
 import time as _time
 import traceback as _traceback
 import paramiko as _paramiko
+from xml.dom.minidom import _in_document
+from test.test_os import root_in_posix
+from pandas.core.computation.expr import _msg
 
 
 class PmacCommands(object):
@@ -44,6 +47,7 @@ class PmacCommands(object):
         self.abort = 'abort'
         self.enplchome = 'enable plc MotorHome'
         self.enplcsync = 'enable plc testPLC'
+        self.enplcreadback = 'enable plc readbackCS1'
         self.gatherdata = 'system gather -u /var/ftp/gather.data.txt'
         self.firstintmeas = '&1#1->50000X#2->50000Y#3->50000X#4->50000Y'
         self.secondintmeas = '&1#1->50000X#2->50000Y#3->-50000X#4->-50000Y'
@@ -109,10 +113,12 @@ class EthernetCom(object):
                 _ans = _ans.replace('\r', '')
                 _ans = _ans.replace('\n', '')
                 _ans = _ans.replace('\x06', '')
-                print(_ans)
                 _ans = _ans.replace(var, '')
                 _ans = _ans.replace('=', '')
-                print(_ans)
+                if 'Coord[1].Q[87]' in _ans:
+                    _ans = _ans.replace('Coord[1].Q[87]', '')
+                elif 'Coord[1].Q[88]' in _ans:
+                    _ans = _ans.replace('Coord[1].Q[88]', '')
                 _ans = float(_ans)
             return _ans
         except Exception:
@@ -223,6 +229,9 @@ class EthernetCom(object):
             _msg = self.commands.enplcsync
             self.write(_msg)
             self.read()
+            _msg = self.commands.enplcreadback
+            self.write(_msg)
+            self.read()
             return True
         except Exception:
             print(_traceback.print_exc(file=_sys.stdout))
@@ -239,12 +248,14 @@ class EthernetCom(object):
             True if operation completed successfully;
             False otherwise."""
 
+        init_pos = init_pos*50000
+        add_pos = add_pos*50000
         try:
-            _msg = self.set_par('ComparePos', init_pos*50000)
+            _msg = self.set_par('ComparePos', init_pos)
             self.write(_msg)
             self.read()
             _time.sleep(0.03)
-            _msg = self.set_par('CompAddDist', add_pos*50000)
+            _msg = self.set_par('CompAddDist', add_pos)
             self.write(_msg)
             self.read()
             return True
@@ -459,6 +470,42 @@ class EthernetCom(object):
             self.write(_msg)
             self.read()
             return True
+        except Exception:
+            print(_traceback.print_exc(file=_sys.stdout))
+            return False
+
+    def in_position(self, motor):
+        """Checks the motor's movement.
+
+        Args:
+            motor (int): motor to check the movement.
+
+        Returns:
+            1 if the motor is stopped.
+            0 otherwise."""
+
+        try:
+            _msg = 'Motor[' + str(motor) + '].InPos'
+            _in_pos = self.get_value(_msg)
+            return _in_pos
+        except Exception:
+            print(_traceback.print_exc(file=_sys.stdout))
+            return False
+
+    def get_position(self, axis):
+        """Get axis position.
+
+        Args:
+            axis (str): X or Y.
+
+        Returns:
+            axis position.
+            False otherwise."""
+
+        try:
+            _msg = axis + '_POS'
+            _pos = self.get_value(_msg)
+            return _pos
         except Exception:
             print(_traceback.print_exc(file=_sys.stdout))
             return False
