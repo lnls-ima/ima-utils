@@ -4,9 +4,6 @@ import sys as _sys
 import time as _time
 import traceback as _traceback
 import paramiko as _paramiko
-from xml.dom.minidom import _in_document
-from test.test_os import root_in_posix
-from pandas.core.computation.expr import _msg
 
 
 class PmacCommands(object):
@@ -45,6 +42,8 @@ class PmacCommands(object):
 
         self.jog_axis = '&1cx'
         self.abort = 'abort'
+        self.kill = 'k'
+        self.homez = 'hmz'
         self.enplchome = 'enable plc MotorHome'
         self.enplcsync = 'enable plc testPLC'
         self.enplcreadback = 'enable plc readbackCS1'
@@ -506,6 +505,46 @@ class EthernetCom(object):
             _msg = axis + '_POS'
             _pos = self.get_value(_msg)
             return _pos
+        except Exception:
+            print(_traceback.print_exc(file=_sys.stdout))
+            return False
+
+    def homez(self, motor):
+        """Program zero-move homing.
+
+        Args:
+            motor (int): motor to perform zero-move homing.
+
+        Returns:
+            True if operation completed successfully;
+            False otherwise."""
+
+        try:
+            _msg = self.set_motor(motor)
+            _msg = _msg + self.commands.homez
+            self.write(_msg)
+            self.read()
+            return True
+        except Exception:
+            print(_traceback.print_exc(file=_sys.stdout))
+            return False
+
+    def kill(self, motor):
+        """Kill motor output.
+
+        Args:
+            motor (int): motor to kill output.
+
+        Returns:
+            True if operation completed successfully;
+            False otherwise."""
+
+        try:
+            _msg = self.set_motor(motor)
+            _msg = _msg + self.commands.kill
+            self.write(_msg)
+            self.read()
+            return True
         except Exception:
             print(_traceback.print_exc(file=_sys.stdout))
             return False
