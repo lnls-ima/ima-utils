@@ -471,7 +471,7 @@ class TestDatabaseDocument(unittest.TestCase):
         temp_db_doc.label = self.label
         temp_db_doc.collection_name = self.collection_name
         temp_db_doc.db_dict = self.db_dict
-        temp_db_doc.read_file(self.fn, columns=columns)
+        temp_db_doc.read_file(self.fn)
 
         self.assertTrue(temp_db_doc.date == db_doc.date)
         self.assertTrue(temp_db_doc.hour == db_doc.hour)

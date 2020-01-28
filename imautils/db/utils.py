@@ -26,7 +26,7 @@ def read_file(filename):
     with open(filename, mode='r') as f:
         fdata = f.read()
     data = [
-        line for line in fdata.splitlines() if len(line) != 0 and 
+        line for line in fdata.splitlines() if len(line) != 0 and
         not line.strip().startswith(COMMENT_CHAR)]
     return data
 
@@ -82,12 +82,12 @@ def find_index(data, variable):
         if line.split('\t')[0].strip() == variable:
             index = i
             break
-    
+
     if index is None:
         for i, line in enumerate(data):
             if variable in line:
                 index = i
-                break        
+                break
 
     return index
 
@@ -135,7 +135,7 @@ def to_float(value, precision=None):
     """Return a float number or None."""
     if value is None:
         return None
-    
+
     elif isinstance(value, str):
         if len(value.strip()) == 0 or value == EMPTY_STR:
             return None
@@ -145,13 +145,13 @@ def to_float(value, precision=None):
             else:
                 v = float(value)
             return v
-    
+
     elif isinstance(value, (float, int)):
         if precision is not None:
             v = _np.around(value, precision)
         else:
             v = float(value)
         return v
-    
-    else:    
+
+    else:
         return None

@@ -672,35 +672,34 @@ class DatabaseAndFileDocument(DatabaseDocument):
         filename = '{0:1s}_{1:1s}.txt'.format(timestamp, self.label)
         return filename
 
-    def read_file(self, filename, columns=None):
+    def read_file(self, filename):
         """Read from file.
 
         Args:
         ----
             filename (str): filepath.
-            columns (list, optional): list of attribute names saved in columns.
 
         """
-        if columns is None:
-            columns = []
-
         flines = _utils.read_file(filename)
         for attr in self.db_dict:
-            if attr not in columns:
-                value = _utils.find_value(flines, attr, raise_error=False)
+            value = _utils.find_value(flines, attr, raise_error=False)
+            try:
                 setattr(self, attr, value)
+            except Exception:
+                pass
 
-        if len(columns) != 0:
-            idx = _utils.find_index(flines, '---------------------')
+        sep_idx = _utils.find_index(flines, '---------------------')
+        if sep_idx is not None:
+            attrs = flines[sep_idx-1].split()
+
             data = []
-            for line in flines[idx+1:]:
+            for line in flines[sep_idx+1:]:
                 data_line = [float(d) for d in line.split('\t')]
                 data.append(data_line)
             data = _np.array(data)
 
-            dshape = data.shape[1]
-            if dshape == len(columns):
-                for idx, attr in enumerate(columns):
+            if len(attrs) == data.shape[1]:
+                for idx, attr in enumerate(attrs):
                     setattr(self, attr, data[:, idx])
             else:
                 msg = 'Inconsistent number of columns in file: %s' % filename
@@ -709,7 +708,14 @@ class DatabaseAndFileDocument(DatabaseDocument):
         return True
 
     def save_file(self, filename, columns=None):
-        """Save to file."""
+        """Save to file.
+
+        Args:
+        ----
+            filename (str): filepath.
+            columns (list, optional): list of attributes to saved in columns.
+
+        """
         if not self.valid_data():
             message = 'Invalid data.'
             raise FileDocumentError(message)
