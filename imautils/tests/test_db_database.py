@@ -10,12 +10,13 @@ from imautils.db import database as dbm
 
 
 _TEST_PATH = os.path.dirname(__file__)
+_MONGO_SERVER = 'localhost'  # '127.0.0.1:27017'
 
 
 class TestDatabase(unittest.TestCase):
 
     def setUp(self):
-        self.mongo_server = 'localhost'
+        self.mongo_server = _MONGO_SERVER
         self.mongo_database_name = 'mongo_database'
 
         self.sqlite_database_name = os.path.join(
@@ -52,7 +53,7 @@ class TestDatabase(unittest.TestCase):
 class TestDatabaseCollection(unittest.TestCase):
 
     def setUp(self):
-        self.mongo_server = 'localhost'
+        self.mongo_server = _MONGO_SERVER
         self.mongo_database_name = 'mongo_database'
 
         self.sqlite_database_name = os.path.join(
@@ -164,7 +165,7 @@ class TestDatabaseCollection(unittest.TestCase):
 class TestDatabaseDocument(unittest.TestCase):
 
     def setUp(self):
-        self.mongo_server = 'localhost'
+        self.mongo_server = _MONGO_SERVER
         self.mongo_database_name = 'mongo_database'
 
         self.sqlite_database_name = os.path.join(
@@ -376,7 +377,6 @@ class TestDatabaseDocument(unittest.TestCase):
         success = db_doc.db_update(idn=idn1)
         self.assertTrue(success)
 
-        fn1 = 'filename1.txt'
         db_doc = dbm.DatabaseAndFileDocument(
             database_name=self.mongo_database_name,
             mongo=True,
@@ -462,13 +462,16 @@ class TestDatabaseDocument(unittest.TestCase):
         db_doc.db_read(idn1)
         db_doc.save_file(self.fn)
 
+        columns = ['array_attr', 'list_attr']
+        db_doc.save_file(self.fn, columns=columns)
+
         temp_db_doc = dbm.DatabaseAndFileDocument(
             database_name=self.sqlite_database_name,
             mongo=False)
         temp_db_doc.label = self.label
         temp_db_doc.collection_name = self.collection_name
         temp_db_doc.db_dict = self.db_dict
-        temp_db_doc.read_file(self.fn)
+        temp_db_doc.read_file(self.fn, columns=columns)
 
         self.assertTrue(temp_db_doc.date == db_doc.date)
         self.assertTrue(temp_db_doc.hour == db_doc.hour)

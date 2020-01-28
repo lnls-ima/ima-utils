@@ -18,6 +18,14 @@ class DatabaseError(Exception):
         self.message = message
 
 
+class FileDocumentError(Exception):
+    """File document exception."""
+
+    def __init__(self, message, *args):
+        """Initialize object."""
+        self.message = message
+
+
 class Database():
     """API for MongoDB or Sqlite database."""
 
@@ -664,25 +672,50 @@ class DatabaseAndFileDocument(DatabaseDocument):
         filename = '{0:1s}_{1:1s}.txt'.format(timestamp, self.label)
         return filename
 
-    def read_file(self, filename):
+    def read_file(self, filename, columns=None):
         """Read from file.
 
         Args:
         ----
             filename (str): filepath.
+            columns (list, optional): list of attribute names saved in columns.
 
         """
+        if columns is None:
+            columns = []
+
         flines = _utils.read_file(filename)
         for attr in self.db_dict:
-            value = _utils.find_value(flines, attr, raise_error=False)
-            setattr(self, attr, value)
+            if attr not in columns:
+                value = _utils.find_value(flines, attr, raise_error=False)
+                setattr(self, attr, value)
+
+        if len(columns) != 0:
+            idx = _utils.find_index(flines, '---------------------')
+            data = []
+            for line in flines[idx+1:]:
+                data_line = [float(d) for d in line.split('\t')]
+                data.append(data_line)
+            data = _np.array(data)
+
+            dshape = data.shape[1]
+            if dshape == len(columns):
+                for idx, attr in enumerate(columns):
+                    setattr(self, attr, data[:, idx])
+            else:
+                msg = 'Inconsistent number of columns in file: %s' % filename
+                raise FileDocumentError(msg)
+
         return True
 
-    def save_file(self, filename):
+    def save_file(self, filename, columns=None):
         """Save to file."""
         if not self.valid_data():
             message = 'Invalid data.'
-            raise ValueError(message)
+            raise FileDocumentError(message)
+
+        if columns is None:
+            columns = []
 
         date, hour = _utils.get_date_hour()
 
@@ -699,28 +732,50 @@ class DatabaseAndFileDocument(DatabaseDocument):
                 f.write(line)
 
             for attr in self.db_dict:
-                value = getattr(self, attr)
+                if attr not in columns:
+                    value = getattr(self, attr)
 
-                if value is None:
-                    value = _utils.EMPTY_STR
+                    if value is None:
+                        value = _utils.EMPTY_STR
 
-                else:
-                    if 'dtype' in self.db_dict[attr].keys():
-                        dtype = self.db_dict[attr]['dtype']
                     else:
-                        dtype = _utils.DEFAULT_DTYPE
+                        if 'dtype' in self.db_dict[attr].keys():
+                            dtype = self.db_dict[attr]['dtype']
+                        else:
+                            dtype = _utils.DEFAULT_DTYPE
 
-                    if dtype in (_np.ndarray, list, tuple, dict):
-                        if dtype == _np.ndarray:
-                            value = value.tolist()
-                        value = _json.dumps(value).replace(' ', '')
-                    elif dtype == str:
-                        if len(value) == 0:
-                            value = _utils.EMPTY_STR
-                        value = value.replace(' ', '_')
+                        if dtype in (_np.ndarray, list, tuple, dict):
+                            if dtype == _np.ndarray:
+                                value = value.tolist()
+                            value = _json.dumps(value).replace(' ', '')
+                        elif dtype == str:
+                            if len(value) == 0:
+                                value = _utils.EMPTY_STR
+                            value = value.replace(' ', '_')
 
-                line = '{0:s}\t{1}\n'.format(attr.ljust(30), value)
-                f.write(line)
+                    line = '{0:s}\t{1}\n'.format(attr.ljust(30), value)
+                    f.write(line)
+
+            if len(columns) != 0:
+                columns_values = []
+                for attr in columns:
+                    columns_values.append(getattr(self, attr))
+
+                columns_header = '\t'.join(columns)
+                columns_values = _np.column_stack(columns_values)
+
+                f.write('\n')
+                f.write('%s\n' % columns_header)
+                f.write('--------------------------------------------' +
+                        '--------------------------------------------\n')
+
+                for i in range(columns_values.shape[0]):
+                    line = ''
+                    for j in range(columns_values.shape[1]):
+                        line = line + '{0:+0.10e}\t'.format(
+                            columns_values[i, j])
+                    f.write(line.strip() + '\n')
+
         return True
 
     def valid_data(self):
