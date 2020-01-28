@@ -2,6 +2,9 @@
 
 """Implementation of functions to handle database documents."""
 
+import json as _json
+import numpy as _np
+
 from . import sqlitedatabase as _sqlitedatabase
 from . import mongodatabase as _mongodatabase
 from . import utils as _utils
@@ -323,8 +326,24 @@ class DatabaseDocument(DatabaseCollection):
             server (str): MongoDB server.
 
         """
-        self._create_attributes()
-        
+        for attr in self.db_dict.keys():
+            if not hasattr(self, attr):
+                if 'dtype' in self.db_dict[attr].keys():
+                    dtype = self.db_dict[attr]['dtype']
+                else:
+                    dtype = str
+
+                if dtype == _np.ndarray:
+                    setattr(self, attr, _np.array([]))
+                elif dtype == dict:
+                    setattr(self, attr, {})
+                elif dtype == list:
+                    setattr(self, attr, [])
+                elif dtype == list:
+                    setattr(self, attr, ())
+                else:
+                    setattr(self, attr, None)
+
         super().__init__(
             database_name=database_name,
             collection_name=self.collection_name,
@@ -372,19 +391,35 @@ class DatabaseDocument(DatabaseCollection):
         """Set attribute."""
         if name not in self.db_dict:
             super().__setattr__(name, value)
+
         else:
-            tp = self.db_dict[name]['dtype']
-            if value is None or isinstance(value, tp):
+            dtype = self.db_dict[name]['dtype']
+
+            if isinstance(value, str) and value == _utils.EMPTY_STR:
+                value = None
+
+            if value is None:
+                if dtype == _np.ndarray:
+                    value = _np.array([])
+                elif dtype == dict:
+                    value = {}
+                elif dtype == list:
+                    value = []
+                elif dtype == list:
+                    value = ()
+                else:
+                    value = None
+
+            if dtype in (_np.ndarray, list, tuple, dict) and isinstance(
+                    value, str):
+                value = _json.loads(value)
+
+            if value is None or isinstance(value, dtype):
                 super().__setattr__(name, value)
-            elif tp == float and isinstance(value, int):
-                super().__setattr__(name, float(value))
-            elif tp == _np.ndarray:
-                super().__setattr__(
-                    name, _utils.to_array(value))
-            elif tp == tuple and isinstance(value, list):
-                super().__setattr__(name, tuple(value))
+            elif dtype == _np.ndarray:
+                super().__setattr__(name, _utils.to_array(value))
             else:
-                raise TypeError('%s must be of type %s.' % (name, tp.__name__))
+                super().__setattr__(name, dtype(value))
 
     def __str__(self):
         """Printable string representation of the object."""
@@ -393,27 +428,6 @@ class DatabaseDocument(DatabaseCollection):
         for key, value in self.__dict__.items():
             r += fmtstr.format(key, str(value))
         return r
-
-    def _create_attributes(self):
-        """Create attributes for db_dict keys."""
-        for attr in self.db_dict.keys():
-            if not hasattr(self, attr):
-                if 'dtype' in self.db_dict[attr].keys():
-                    dtype = self.db_dict[attr]['dtype']
-                else:
-                    dtype = str
-    
-                if dtype == _np.ndarray:
-                    setattr(self, attr, _np.array([]))
-                elif dtype == dict:
-                    setattr(self, attr, {})
-                elif dtype == list:
-                    setattr(self, attr, [])
-                elif dtype == list:
-                    setattr(self, attr, ())
-                else:
-                    setattr(self, attr, None)
-        return True
 
     def clear(self):
         """Clear object."""
@@ -457,56 +471,51 @@ class DatabaseDocument(DatabaseCollection):
         """Insert a document into a database collection.
 
         Returns:
-            True if update was sucessful, False otherwise.
+            The id of the saved database document.
 
         """
         values_dict = {}
-        field_names = self.db_get_field_names()
         date, hour = _utils.get_date_hour()
-                                      
+
         reverse_db_dict = {}
         for k, v in self.db_dict.items():
             reverse_db_dict[v['field']] = k
-    
+
         if 'id' in reverse_db_dict.keys():
             setattr(self, reverse_db_dict['id'], None)
         else:
             values_dict['id'] = None
-    
+
         if 'date' in reverse_db_dict.keys():
             if getattr(self, reverse_db_dict['date']) is None:
                 setattr(self, reverse_db_dict['date'], date)
         else:
             values_dict['date'] = date
-    
+
         if 'hour' in reverse_db_dict.keys():
             if getattr(self, reverse_db_dict['hour']) is None:
                 setattr(self, reverse_db_dict['hour'], hour)
         else:
             values_dict['hour'] = hour
-    
+
         for attr_name in self.db_dict:
             field = self.db_dict[attr_name]['field']
-            
+
             if 'dtype' in self.db_dict[attr_name].keys():
                 dtype = self.db_dict[attr_name]['dtype']
             else:
                 dtype = _utils.DEFAULT_DTYPE
-    
-            if field not in field_names:
-                msg = 'Field {0:s} not found in database.'.format(field)
-                raise DatabaseError(msg)
-    
-            value = getattr(record, attr_name)
+
+            value = getattr(self, attr_name)
             if value is not None and dtype in (_np.ndarray, list, tuple, dict):
                 if isinstance(value, _np.ndarray):
                     value = value.tolist()
-                
+
                 if not self.mongo:
                     value = _json.dumps(value)
-            
-            values_dict[attr_name] = value
-        
+
+            values_dict[field] = value
+
         if self.mongo:
             if self.client is None:
                 self.client = _mongodatabase.db_connect(server=self.server)
@@ -516,9 +525,9 @@ class DatabaseDocument(DatabaseCollection):
         else:
             idn = _sqlitedatabase.db_save(
                 self.database_name, self.collection_name, values_dict)
-            
+
         setattr(self, reverse_db_dict['id'], idn)
-        return True
+        return idn
 
     def db_read(self, idn=None):
         """Read a document (collection entry) from database.
@@ -533,9 +542,11 @@ class DatabaseDocument(DatabaseCollection):
         if self.mongo:
             if self.client is None:
                 self.client = _mongodatabase.db_connect(server=self.server)
-            values_dict = _mongodatabase.db_read(self, idn=idn)
+            values_dict = _mongodatabase.db_read(
+                self.client, self.database_name, self.collection_name, idn=idn)
         else:
-            values_dict = _sqlitedatabase.db_read(self, idn=idn)
+            values_dict = _sqlitedatabase.db_read(
+                self.database_name, self.collection_name, idn=idn)
 
         if len(values_dict) == 0:
             return False
@@ -544,33 +555,20 @@ class DatabaseDocument(DatabaseCollection):
 
         for attr_name in self.db_dict:
             field = self.db_dict[attr_name]['field']
-            
-            if 'dtype' in self.db_dict[attr_name].keys():
-                dtype = self.db_dict[attr_name]['dtype']
-            else:
-                dtype = _utils.DEFAULT_DTYPE
-    
+
             if field not in field_names:
                 msg = 'Field {0:s} not found in database.'.format(field)
                 raise DatabaseError(msg)
-    
+
             try:
                 value = values_dict[field]
-                if value is not None and dtype in (
-                    _np.ndarray, list, tuple, dict):
-                    if not self.mongo:
-                        value = _json.loads(value)
-                    
-                    if dtype == _np.ndarray:
-                        value = _utils.to_array(value)
-                
                 setattr(self, attr_name, value)
-            
+
             except AttributeError:
                 pass
-            
+
         return True
-        
+
     def db_update(self, idn):
         """Update a collection's document from database.
 
@@ -584,50 +582,50 @@ class DatabaseDocument(DatabaseCollection):
         values_dict = {}
         field_names = self.db_get_field_names()
         date, hour = _utils.get_date_hour()
-                                      
+
         reverse_db_dict = {}
         for k, v in self.db_dict.items():
             reverse_db_dict[v['field']] = k
-    
+
         if 'id' in reverse_db_dict.keys():
             setattr(self, reverse_db_dict['id'], idn)
         else:
             values_dict['id'] = idn
-    
+
         if 'date' in reverse_db_dict.keys():
             if getattr(self, reverse_db_dict['date']) is None:
                 setattr(self, reverse_db_dict['date'], date)
         else:
             values_dict['date'] = date
-    
+
         if 'hour' in reverse_db_dict.keys():
-            if getattr(record, reverse_db_dict['hour']) is None:
-                setattr(record, reverse_db_dict['hour'], hour)
+            if getattr(self, reverse_db_dict['hour']) is None:
+                setattr(self, reverse_db_dict['hour'], hour)
         else:
             values_dict['hour'] = hour
-    
+
         for attr_name in self.db_dict:
             field = self.db_dict[attr_name]['field']
-            
+
             if 'dtype' in self.db_dict[attr_name].keys():
                 dtype = self.db_dict[attr_name]['dtype']
             else:
                 dtype = _utils.DEFAULT_DTYPE
-    
+
             if field not in field_names:
                 msg = 'Field {0:s} not found in database.'.format(field)
                 raise DatabaseError(msg)
-    
-            value = getattr(record, attr_name)
+
+            value = getattr(self, attr_name)
             if value is not None and dtype in (_np.ndarray, list, tuple, dict):
                 if isinstance(value, _np.ndarray):
                     value = value.tolist()
-                
+
                 if not self.mongo:
                     value = _json.dumps(value)
-            
-            values_dict[attr_name] = value        
-    
+
+            values_dict[field] = value
+
         if self.mongo:
             if self.client is None:
                 self.client = _mongodatabase.db_connect(server=self.server)
@@ -647,29 +645,17 @@ class DatabaseAndFileDocument(DatabaseDocument):
     db_dict = {}
 
     def __init__(
-            self, filename=None, database_name=None, idn=None,
-            mongo=False, server='localhost'):
+            self, database_name=None, mongo=False, server='localhost'):
         """Initialize obejct.
 
         Args:
-            filename (str): filepath.
             database_name (str): database file path (sqlite) or name (mongo).
-            idn (int): id in database table (sqlite) / collection (mongo).
             mongo (bool): flag indicating mongoDB (True) or sqlite (False).
             server (str): MongoDB server.
 
-        """        
+        """
         super().__init__(
             database_name=database_name, mongo=mongo, server=server)
-
-        if filename is not None and idn is not None:
-            raise ValueError('Invalid arguments.')
-
-        if idn is not None and database_name is not None:
-            self.read_from_database()
-
-        elif filename is not None:
-            self.read_file(filename)  
 
     @property
     def default_filename(self):
@@ -677,7 +663,7 @@ class DatabaseAndFileDocument(DatabaseDocument):
         timestamp = _utils.get_timestamp()
         filename = '{0:1s}_{1:1s}.txt'.format(timestamp, self.label)
         return filename
- 
+
     def read_file(self, filename):
         """Read from file.
 
@@ -687,37 +673,9 @@ class DatabaseAndFileDocument(DatabaseDocument):
 
         """
         flines = _utils.read_file(filename)
-        
         for attr in self.db_dict:
-            if 'dtype' in self.db_dict[attr].keys():
-                tp = self.db_dict[attr]['dtype']
-            else:
-                tp = _utils.DEFAULT_DTYPE
-            
-            value_str = _utils.find_value(flines, attr, raise_error=False)
-            
-            if value_str is None or value_str == _utils.EMPTY_STR:
-                if dtype == _np.ndarray:
-                    setattr(self, attr, _np.array([]))
-                elif dtype == dict:
-                    setattr(self, attr, {})
-                elif dtype == list:
-                    setattr(self, attr, [])
-                elif dtype == list:
-                    setattr(self, attr, ())
-                else:
-                    setattr(self, attr, None)
-            
-            else:
-                if tp in (_np.ndarray, list, tuple, dict):
-                    value = _json.loads(value_str)
-                    if tp == _np.ndarray:
-                        value = _utils.to_array(value)
-                else:
-                    value = _utils.find_value(
-                        flines, attr, vtype=tp, raise_error=False)
-                
-                setattr(self, attr, value)
+            value = _utils.find_value(flines, attr, raise_error=False)
+            setattr(self, attr, value)
         return True
 
     def save_file(self, filename):
@@ -748,15 +706,15 @@ class DatabaseAndFileDocument(DatabaseDocument):
 
                 else:
                     if 'dtype' in self.db_dict[attr].keys():
-                        tp = self.db_dict[attr]['dtype']
+                        dtype = self.db_dict[attr]['dtype']
                     else:
-                        tp = _utils.DEFAULT_DTYPE
-                    
-                    if tp in (_np.ndarray, list, tuple, dict):
-                        if tp == _np.ndarray:
+                        dtype = _utils.DEFAULT_DTYPE
+
+                    if dtype in (_np.ndarray, list, tuple, dict):
+                        if dtype == _np.ndarray:
                             value = value.tolist()
                         value = _json.dumps(value).replace(' ', '')
-                    elif tp == str:
+                    elif dtype == str:
                         if len(value) == 0:
                             value = _utils.EMPTY_STR
                         value = value.replace(' ', '_')
@@ -773,8 +731,8 @@ class DatabaseAndFileDocument(DatabaseDocument):
                 not_null = self.db_dict[name]['not_null']
             else:
                 not_null = _utils.DEFAULT_NOT_NULL
-            
-            if not_null and name not in ['idn', 'date', 'hour']: 
+
+            if not_null and name not in ['idn', 'date', 'hour']:
                 values.append(getattr(self, name))
-        
+
         return all([v is not None for v in values])
