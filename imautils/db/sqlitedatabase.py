@@ -3,8 +3,10 @@
 """Implementation of functions to handle sqlite database records."""
 
 import os as _os
+import sys as _sys
 import json as _json
 import sqlite3 as _sqlite
+import traceback as _traceback
 import numpy as _np
 
 from . import utils as _utils
@@ -18,7 +20,7 @@ class SqliteDatabaseError(Exception):
         self.message = message
 
 
-def database_exists(database_name):
+def db_database_exists(database_name):
     """Check if database file exists.
 
     Args:
@@ -28,10 +30,14 @@ def database_exists(database_name):
         True if database file exists, False otherwise.
 
     """
-    return _os.path.isfile(database_name)
+    if database_name is None or len(database_name) == 0:
+        msg = 'Invalid database name.'
+        raise SqliteDatabaseError(msg)
+    else:
+        return _os.path.isfile(database_name)
 
 
-def get_tables(database_name):
+def db_get_tables(database_name):
     """Get database table names.
 
     Args:
@@ -41,18 +47,25 @@ def get_tables(database_name):
         a list with table names.
 
     """
-    if not database_exists(database_name):
-        return []
+    if not db_database_exists(database_name):
+        msg = 'Database not found.'
+        raise SqliteDatabaseError(msg)
 
     con = _sqlite.connect(database_name)
     cur = con.cursor()
-    cur.execute("SELECT name FROM sqlite_master WHERE type='table';")
-    table_names = [r[0] for r in cur.fetchall()]
-    con.close()
-    return table_names
+    
+    try:
+        cur.execute("SELECT name FROM sqlite_master WHERE type='table';")
+        table_names = [r[0] for r in cur.fetchall()]
+        con.close()
+        return table_names
+    
+    except Exception as e:
+        con.close()
+        raise e
 
 
-def table_exists(database_name, table_name):
+def db_table_exists(database_name, table_name):
     """Check if table exists in database.
 
     Args:
@@ -63,25 +76,32 @@ def table_exists(database_name, table_name):
         True if the table exists, False otherwise.
 
     """
-    if len(table_name) == 0:
-        return False
+    if not db_database_exists(database_name):
+        msg = 'Database not found.'
+        raise SqliteDatabaseError(msg)
 
-    if not database_exists(database_name):
-        return False
+    if table_name is None or len(table_name) == 0 or table_name == 'table':
+        msg = 'Invalid table name.'
+        raise SqliteDatabaseError(msg)
 
     con = _sqlite.connect(database_name)
     cur = con.cursor()
 
-    cur.execute("PRAGMA TABLE_INFO({0})".format(table_name))
-    if len(cur.fetchall()) > 0:
+    try:
+        cur.execute("PRAGMA TABLE_INFO({0})".format(table_name))
+        if len(cur.fetchall()) > 0:
+            con.close()
+            return True
+        else:
+            con.close()
+            return False
+
+    except Exception as e:
         con.close()
-        return True
-    else:
-        con.close()
-        return False
+        raise e
 
 
-def get_column_names(database_name, table_name):
+def db_get_column_names(database_name, table_name):
     """Return the column names of the database table.
 
     Args:
@@ -92,19 +112,26 @@ def get_column_names(database_name, table_name):
         a list with table column names.
 
     """
-    if not table_exists(database_name, table_name):
-        return []
+    if not db_table_exists(database_name, table_name):
+        msg = 'Database table not found.'
+        raise SqliteDatabaseError(msg)
 
     con = _sqlite.connect(database_name)
     cur = con.cursor()
-    cur.execute("PRAGMA TABLE_INFO({0})".format(table_name))
-    info = cur.fetchall()
-    column_names = [i[1] for i in info]
-    con.close()
-    return column_names
+    
+    try:
+        cur.execute("PRAGMA TABLE_INFO({0})".format(table_name))
+        info = cur.fetchall()
+        column_names = [i[1] for i in info]
+        con.close()
+        return column_names
+    
+    except Exception as e:
+        con.close()
+        raise e
 
 
-def get_column_types(database_name, table_name):
+def db_get_column_types(database_name, table_name):
     """Return the column types of the database table.
 
     Args:
@@ -115,8 +142,9 @@ def get_column_types(database_name, table_name):
         a dict with column names and types.
 
     """
-    if not table_exists(database_name, table_name):
-        return []
+    if not db_table_exists(database_name, table_name):
+        msg = 'Database table not found.'
+        raise SqliteDatabaseError(msg)
 
     db_type_dict = {
         'INTEGER': int,
@@ -126,18 +154,24 @@ def get_column_types(database_name, table_name):
 
     con = _sqlite.connect(database_name)
     cur = con.cursor()
-    cur.execute("PRAGMA TABLE_INFO({0})".format(table_name))
-    info = cur.fetchall()
-    con.close()
+    
+    try:
+        cur.execute("PRAGMA TABLE_INFO({0})".format(table_name))
+        info = cur.fetchall()
+        con.close()
+    
+        column_types = {}
+        for i in info:
+            column_types[i[1]] = db_type_dict[i[2]]
+    
+        return column_types
 
-    column_types = {}
-    for i in info:
-        column_types[i[1]] = db_type_dict[i[2]]
-
-    return column_types
+    except Exception as e:
+        con.close()
+        raise e
 
 
-def get_first_id(database_name, table_name):
+def db_get_first_id(database_name, table_name):
     """Return the first id of the database table.
 
     Args:
@@ -148,8 +182,9 @@ def get_first_id(database_name, table_name):
         an id.
 
     """
-    if not table_exists(database_name, table_name):
-        return None
+    if not db_table_exists(database_name, table_name):
+        msg = 'Database table not found.'
+        raise SqliteDatabaseError(msg)
 
     con = _sqlite.connect(database_name)
     cur = con.cursor()
@@ -159,12 +194,13 @@ def get_first_id(database_name, table_name):
         idn = cur.fetchone()[0]
         con.close()
         return idn
-    except Exception:
+    
+    except Exception as e:
         con.close()
-        return None
+        raise e
 
 
-def get_last_id(database_name, table_name):
+def db_get_last_id(database_name, table_name):
     """Return the last id of the database table.
 
     Args:
@@ -175,8 +211,9 @@ def get_last_id(database_name, table_name):
         an id.
 
     """
-    if not table_exists(database_name, table_name):
-        return None
+    if not db_table_exists(database_name, table_name):
+        msg = 'Database table not found.'
+        raise SqliteDatabaseError(msg)
 
     con = _sqlite.connect(database_name)
     cur = con.cursor()
@@ -186,12 +223,13 @@ def get_last_id(database_name, table_name):
         idn = cur.fetchone()[0]
         con.close()
         return idn
-    except Exception:
+    
+    except Exception as e:
         con.close()
-        return None
+        raise e
 
 
-def get_values(database_name, table_name, column):
+def db_get_values(database_name, table_name, column):
     """Return column values of the database table.
 
     Args:
@@ -203,18 +241,29 @@ def get_values(database_name, table_name, column):
         a list with column values.
 
     """
-    if not table_exists(database_name, table_name):
-        return []
+    if not db_table_exists(database_name, table_name):
+        msg = 'Database table not found.'
+        raise SqliteDatabaseError(msg)
+
+    if column is None or len(column) == 0:
+        msg = 'Invalid column name.'
+        raise SqliteDatabaseError(msg)    
 
     con = _sqlite.connect(database_name)
     cur = con.cursor()
-    cur.execute('SELECT {0} FROM {1}'.format(column, table_name))
-    column = [d[0] for d in cur.fetchall()]
-    con.close()
-    return column
+    
+    try:
+        cur.execute('SELECT {0} FROM {1}'.format(column, table_name))
+        column = [d[0] for d in cur.fetchall()]
+        con.close()
+        return column
+    
+    except Exception as e:
+        con.close()
+        raise e
 
 
-def get_value(database_name, table_name, column, idn):
+def db_get_value(database_name, table_name, column, idn):
     """Get column value from entry id.
 
     Args:
@@ -227,8 +276,17 @@ def get_value(database_name, table_name, column, idn):
         the parameter value.
 
     """
-    if not table_exists(database_name, table_name):
-        return None
+    if not db_table_exists(database_name, table_name):
+        msg = 'Database table not found.'
+        raise SqliteDatabaseError(msg)
+
+    if column is None or len(column) == 0:
+        msg = 'Invalid column name.'
+        raise SqliteDatabaseError(msg)    
+
+    if idn is None:
+        msg = 'Invalid id number.'
+        raise SqliteDatabaseError(msg)    
 
     con = _sqlite.connect(database_name)
     cur = con.cursor()
@@ -236,15 +294,18 @@ def get_value(database_name, table_name, column, idn):
     try:
         cur.execute('SELECT {0} FROM {1} WHERE id = ?'.format(
             column, table_name), (idn,))
-        value = cur.fetchone()[0]
+        value = cur.fetchone()
+        if value is not None:
+            value = value[0]
         con.close()
         return value
-    except Exception:
+    
+    except Exception as e:
         con.close()
-        return None
+        raise e
 
 
-def search_column(database_name, table_name, column, value):
+def db_search_column(database_name, table_name, column, value):
     """Search column in database table.
 
     Args:
@@ -257,12 +318,22 @@ def search_column(database_name, table_name, column, value):
         a list of dicts with database entries.
 
     """
-    if not table_exists(database_name, table_name):
-        return []
+    if not db_table_exists(database_name, table_name):
+        msg = 'Database table not found.'
+        raise SqliteDatabaseError(msg)
 
-    column_names = get_column_names(database_name, table_name)
-    if len(column_names) == 0:
-        return []
+    if column is None or len(column) == 0:
+        msg = 'Invalid column name.'
+        raise SqliteDatabaseError(msg)    
+
+    if value is None:
+        msg = 'Invalid value to search.'
+        raise SqliteDatabaseError(msg)    
+
+    column_names = db_get_column_names(database_name, table_name)
+    if column not in column_names:
+        msg = 'Column "{0}" not found in database table.'.format(column)
+        raise SqliteDatabaseError(msg)
 
     con = _sqlite.connect(database_name)
     cur = con.cursor()
@@ -282,20 +353,21 @@ def search_column(database_name, table_name, column, value):
             list_of_dicts.append(_d)
 
         return list_of_dicts
-    except Exception:
+    
+    except Exception as e:
         con.close()
-        return []
+        raise e
 
 
-def search_table(
-        database_name, table_name, columns, filters=None,
+def db_search_table(
+        database_name, table_name, columns=None, filters=None,
         initial_idn=None, max_nr_lines=None):
     """Search paremeter in database.
 
     Args:
         database_name (str): full file path to database.
         table_name (str): database table name.
-        columns (list): list of column names to filter.
+        columns (list, optional): list of column names to filter.
         filters (list, optional): list of filters to apply.
         initial_idn (int, optional): initial id to start filter.
         max_nr_lines (int, optional): maximum number of lines.
@@ -304,85 +376,104 @@ def search_table(
         a list of dicts with database entries.
 
     """
-    try:
-        if filters is None:
-            filters_list = ['']*len(columns)
-        else:
-            filters_list = [str(f) for f in filters]
+    if not db_table_exists(database_name, table_name):
+        msg = 'Database table not found.'
+        raise SqliteDatabaseError(msg)
 
-        column_names = [c for c in columns]
-        if 'id' not in column_names:
-            column_names.insert(0, 'id')
-            filters_list.insert(0, '')
+    if columns is None or len(columns) == 0:
+        columns = db_get_column_names(database_name, table_name)
+        
+    if isinstance(columns, str):
+        columns = [columns]
 
-        column_names_str = ''
-        for column in column_names:
-            column_names_str = column_names_str + '"{0:s}", '.format(
-                column)
-        column_names_str = column_names_str[:-2]
-        cmd = 'SELECT {0:s} FROM {1:s}'.format(column_names_str, table_name)
+    if filters is None or len(filters) == 0:
+        filters_list = ['']*len(columns)
+    else:
+        filters_list = [str(f) for f in filters]
 
-        column_types = get_column_types(
-            database_name, table_name)
+    column_names = [c for c in columns]
+    if 'id' not in column_names:
+        column_names.insert(0, 'id')
+        filters_list.insert(0, '')
 
-        if any(filt != '' for filt in filters_list):
-            cmd = cmd + ' WHERE '
+    if len(filters_list) != len(column_names):
+        msg = 'Inconsistent columns and filters arguments.'
+        raise SqliteDatabaseError(msg)        
 
-        and_flag = False
-        for idx, column in enumerate(column_names):
-            data_type = column_types[column]
+    column_names_str = ''
+    for column in column_names:
+        column_names_str = column_names_str + '"{0:s}", '.format(
+            column)
+    column_names_str = column_names_str[:-2]
+    cmd = 'SELECT {0:s} FROM {1:s}'.format(column_names_str, table_name)
 
-            filt = filters_list[idx]
+    column_types = db_get_column_types(
+        database_name, table_name)
 
-            if filt != '':
+    if any(filt != '' for filt in filters_list):
+        cmd = cmd + ' WHERE '
 
-                if and_flag:
-                    cmd = cmd + ' AND '
-                and_flag = True
+    and_flag = False
+    for idx, column in enumerate(column_names):
+        if column not in column_types.keys():
+            msg = 'Column "{0}" not found in database table.'.format(column)
+            raise SqliteDatabaseError(msg)
+        
+        data_type = column_types[column]
 
-                if data_type == str:
-                    cmd = cmd + column + ' LIKE "%' + filt + '%"'
-                else:
-                    if '~' in filt:
-                        fs = filt.split('~')
-                        if len(fs) == 2:
-                            cmd = cmd + column + ' >= ' + fs[0]
-                            cmd = cmd + ' AND '
-                            cmd = cmd + column + ' <= ' + fs[1]
-                    elif filt.lower() == 'none' or filt.lower() == 'null':
-                        cmd = cmd + column + ' IS NULL'
-                    else:
-                        try:
-                            value = data_type(filt)
-                            cmd = cmd + column + ' = ' + str(value)
-                        except ValueError:
-                            cmd = cmd + column + ' ' + filt
+        filt = filters_list[idx]
 
-        if max_nr_lines is not None:
-            limit_str = ' LIMIT {0:d}'.format(max_nr_lines)
-        else:
-            limit_str = ''
+        if filt != '':
 
-        if initial_idn is not None:
-            if 'WHERE' in cmd:
-                cmd = (
-                    'SELECT * FROM (' + cmd +
-                    ' AND id >= {0:d}{1:s})'.format(
-                        initial_idn, limit_str))
+            if and_flag:
+                cmd = cmd + ' AND '
+            and_flag = True
+
+            if data_type == str:
+                cmd = cmd + column + ' LIKE "%' + filt + '%"'
             else:
-                cmd = (
-                    'SELECT * FROM (' + cmd +
-                    ' WHERE id >= {0:d}{1:s})'.format(
-                        initial_idn, limit_str))
+                if '~' in filt:
+                    fs = filt.split('~')
+                    if len(fs) == 2:
+                        cmd = cmd + column + ' >= ' + fs[0]
+                        cmd = cmd + ' AND '
+                        cmd = cmd + column + ' <= ' + fs[1]
+                elif filt.lower() == 'none' or filt.lower() == 'null':
+                    cmd = cmd + column + ' IS NULL'
+                else:
+                    try:
+                        value = data_type(filt)
+                        cmd = cmd + column + ' = ' + str(value)
+                    except ValueError:
+                        cmd = cmd + column + ' ' + filt
 
+    if max_nr_lines is not None:
+        limit_str = ' LIMIT {0:d}'.format(max_nr_lines)
+    else:
+        limit_str = ''
+
+    if initial_idn is not None:
+        if 'WHERE' in cmd:
+            cmd = (
+                'SELECT * FROM (' + cmd +
+                ' AND id >= {0:d}{1:s})'.format(
+                    initial_idn, limit_str))
         else:
             cmd = (
                 'SELECT * FROM (' + cmd +
-                ' ORDER BY id DESC{0:s}) ORDER BY id ASC'.format(
-                    limit_str))
+                ' WHERE id >= {0:d}{1:s})'.format(
+                    initial_idn, limit_str))
 
-        con = _sqlite.connect(database_name)
-        cur = con.cursor()
+    else:
+        cmd = (
+            'SELECT * FROM (' + cmd +
+            ' ORDER BY id DESC{0:s}) ORDER BY id ASC'.format(
+                limit_str))
+
+    con = _sqlite.connect(database_name)
+    cur = con.cursor()
+    
+    try:
         cur.execute(cmd)
         data = cur.fetchall()
         con.close()
@@ -395,13 +486,12 @@ def search_table(
             list_of_dicts.append(_d)
         return list_of_dicts
 
-    except Exception:
+    except Exception as e:
         con.close()
-        message = 'Could not filter values in table {0}.'.format(table_name)
-        raise SqliteDatabaseError(message)
+        raise e
 
 
-def create_table(database_name, table_name, db_dict):
+def db_create_table(database_name, table_name, db_dict):
     """Create database table.
 
     Args:
@@ -413,8 +503,16 @@ def create_table(database_name, table_name, db_dict):
         True if successful, False otherwise.
 
     """
-    if database_name is None or len(table_name) == 0:
-        return False
+    if database_name is None:
+        msg = 'Invalid database name.'
+        raise SqliteDatabaseError(msg)
+    
+    if len(table_name) == 0:
+        msg = 'Invalid table name.'
+        raise SqliteDatabaseError(msg)
+    
+    if db_dict is None:
+        db_dict = {}
 
     fields = [db_dict[k]['field'] for k in db_dict.keys()]
 
@@ -428,8 +526,21 @@ def create_table(database_name, table_name, db_dict):
 
     for attr_name in db_dict:
         column = db_dict[attr_name]['field']
-        dtype = db_dict[attr_name]['dtype']
-        not_null = db_dict[attr_name]['not_null']
+        
+        if 'dtype' in db_dict[attr_name].keys():
+            dtype = db_dict[attr_name]['dtype']
+        else:
+            dtype = _utils.DEFAULT_DTYPE
+        
+        if 'not_null' in db_dict[attr_name].keys():
+            not_null = db_dict[attr_name]['not_null']
+        else:
+            not_null = _utils.DEFAULT_NOT_NULL
+
+        if 'unique' in db_dict[attr_name].keys():
+            unique = db_dict[attr_name]['unique']
+        else:
+            unique = _utils.DEFAULT_UNIQUE
 
         if dtype == int:
             db_type = 'INTEGER'
@@ -445,12 +556,15 @@ def create_table(database_name, table_name, db_dict):
         if not_null:
             db_type = db_type + ' NOT NULL'
 
+        if unique:
+            db_type = db_type + ' UNIQUE'
+
         variables.append((column, db_type))
 
-    try:
-        con = _sqlite.connect(database_name)
-        cur = con.cursor()
+    con = _sqlite.connect(database_name)
+    cur = con.cursor()
 
+    try:
         cmd = 'CREATE TABLE IF NOT EXISTS {0} ('.format(table_name)
         for var in variables:
             cmd = cmd + "\'{0}\' {1},".format(var[0], var[1])
@@ -459,127 +573,82 @@ def create_table(database_name, table_name, db_dict):
         con.close()
         return True
 
-    except Exception:
+    except Exception as e:
         con.close()
-        return False
+        raise e
 
 
-def save_to_database(record):
+def db_save(database_name, table_name, values_dict):
     """Insert values into database table.
 
     Args:
-        record: object derived from DatabaseDocument object.
+        database_name (str): full file path to database.
+        table_name (str): database table name.
+        values_dict (str): dict with values to save in database.
 
     Returns:
-        True if update was sucessful, False otherwise.
+        The id of the saved database record.
 
     """
-    database_name = record.database_name
-    table_name = record.collection_name
-    db_dict = record.db_dict
+    if not db_table_exists(database_name, table_name):
+        msg = 'Database table not found.'
+        raise SqliteDatabaseError(msg)
 
-    if database_name is None or len(table_name) == 0:
-        return False
+    column_names = db_get_column_names(database_name, table_name)
+    if len(column_names) == 0:
+        msg = 'Empty database table'
+        raise SqliteDatabaseError(msg)
 
-    if len(table_name) == 0:
-        return False
+    if values_dict is None or len(values_dict) == 0:
+        msg = 'Invalid values to save in database.'
+        raise SqliteDatabaseError(msg)
 
-    db_column_names = get_column_names(database_name, table_name)
-    if len(db_column_names) == 0:
-        raise SqliteDatabaseError('Failed to save data to database.')
+    if len(values_dict) != len(column_names):
+        msg = 'Inconsistent number of values for table {0}.'.format(table_name)
+        raise SqliteDatabaseError(msg)
 
     values = []
-
-    timestamp_split = _utils.get_timestamp().split('_')
-    date = timestamp_split[0]
-    hour = timestamp_split[1].replace('-', ':')
-
-    reverse_db_dict = {}
-    for k, v in db_dict.items():
-        reverse_db_dict[v['field']] = k
-
-    if 'id' in reverse_db_dict.keys():
-        setattr(record, reverse_db_dict['id'], None)
-    else:
-        values.append(None)
-
-    if 'date' in reverse_db_dict.keys():
-        if getattr(record, reverse_db_dict['date']) is None:
-            setattr(record, reverse_db_dict['date'], date)
-
-    if 'hour' in reverse_db_dict.keys():
-        if getattr(record, reverse_db_dict['hour']) is None:
-            setattr(record, reverse_db_dict['hour'], hour)
-
-    for attr_name in db_dict:
-        column = db_dict[attr_name]['field']
-        dtype = db_dict[attr_name]['dtype']
-
-        if column not in db_column_names:
-            raise SqliteDatabaseError('Failed to save data to database.')
-
-        if dtype in (_np.ndarray, list, tuple, dict):
-            value = getattr(record, attr_name)
-            if value is None:
-                values.append(value)
-            else:
-                if isinstance(value, _np.ndarray):
-                    value = value.tolist()
-                values.append(_json.dumps(value))
-        else:
-            values.append(getattr(record, attr_name))
-
-    if len(values) != len(db_column_names):
-        message = 'Inconsistent number of values for table {0}.'.format(
-            table_name)
-        raise SqliteDatabaseError(message)
-
-    _l = '(' + ','.join(['?']*len(values)) + ')'
+    for column in column_names:
+        values.append(values_dict[column])
+    aux_str = '(' + ','.join(['?']*len(values)) + ')'  
 
     con = _sqlite.connect(database_name)
     cur = con.cursor()
 
     try:
         cur.execute(
-            ('INSERT INTO {0} VALUES '.format(table_name) + _l), values)
+            ('INSERT INTO {0} VALUES '.format(table_name) + aux_str), values)
 
         idn = cur.lastrowid
-        if 'id' in reverse_db_dict.keys():
-            setattr(record, reverse_db_dict['id'], idn)
-
         con.commit()
         con.close()
-        return True
+        return idn
 
-    except Exception:
+    except Exception as e:
         con.close()
-        message = 'Could not insert values into table {0}.'.format(table_name)
-        raise SqliteDatabaseError(message)
+        raise e
 
 
-def read_from_database(record, idn=None):
+def db_read(database_name, table_name, idn=None):
     """Read a table entry from database.
 
     Args:
-        record: object derived from DatabaseDocument object.
+        database_name (str): full file path to database.
+        table_name (str): database table name.
         idn (int, optional): entry id (returns last id if not specified).
 
     Returns:
-        True if update was sucessful, False otherwise.
+        a dict with values read from database.
 
     """
-    database_name = record.database_name
-    table_name = record.collection_name
-    db_dict = record.db_dict
+    if not db_table_exists(database_name, table_name):
+        msg = 'Database table not found.'
+        raise SqliteDatabaseError(msg)
 
-    if database_name is None or len(table_name) == 0:
-        return False
-
-    db_dict = record.db_dict
-
-    db_column_names = get_column_names(database_name, table_name)
-    if len(db_column_names) == 0:
-        raise SqliteDatabaseError('Failed to read data from database.')
+    column_names = db_get_column_names(database_name, table_name)
+    if len(column_names) == 0:
+        msg = 'Empty database table'
+        raise SqliteDatabaseError(msg)
 
     con = _sqlite.connect(database_name)
     cur = con.cursor()
@@ -595,118 +664,67 @@ def read_from_database(record, idn=None):
         entry = cur.fetchone()
         con.close()
         if entry is None:
-            return False
+            return {}
 
-    except Exception:
+    except Exception as e:
         con.close()
-        message = ('Could not retrieve data from {0}'.format(table_name))
-        raise SqliteDatabaseError(message)
+        raise e
 
-    for attr_name in db_dict:
-        column = db_dict[attr_name]['field']
-        dtype = db_dict[attr_name]['dtype']
-
-        if column not in db_column_names:
-            raise SqliteDatabaseError('Failed to read data from database.')
-
-        try:
-            idx = db_column_names.index(column)
-            if dtype in (_np.ndarray, list, tuple, dict):
-                if entry[idx] is None:
-                    setattr(record, attr_name, entry[idx])
-                else:
-                    _l = _json.loads(entry[idx])
-                    if dtype == _np.ndarray:
-                        setattr(record, attr_name, _utils.to_array(_l))
-                    else:
-                        setattr(record, attr_name, _l)
-            else:
-                setattr(record, attr_name, entry[idx])
-        except AttributeError:
-            pass
-
-    return True
+    values_dict = {}
+    for idx, column in enumerate(column_names):
+        values_dict[column] = entry[idx]
+    
+    return values_dict
 
 
-def update_database(record, idn):
+def db_update(database_name, table_name, values_dict, idn):
     """Update a table entry from database.
 
     Args:
-        record: object derived from DatabaseDocument object.
+        database_name (str): full file path to database.
+        table_name (str): database table name.
+        values_dict (str): dict with values to save in database.
         idn (int): entry id.
 
     Returns:
-        True if update was sucessful, False otherwise.
+        True if update was successful, False otherwise.
 
     """
-    database_name = record.database_name
-    table_name = record.collection_name
-    db_dict = record.db_dict
+    if not db_table_exists(database_name, table_name):
+        msg = 'Database table not found.'
+        raise SqliteDatabaseError(msg)
 
-    if database_name is None or len(table_name) == 0:
-        return False
+    column_names = db_get_column_names(database_name, table_name)
+    if len(column_names) == 0:
+        msg = 'Empty database table {0}.'.format(table_name)
+        raise SqliteDatabaseError(msg)
 
-    db_dict = record.db_dict
+    if values_dict is None or len(values_dict) == 0:
+        msg = 'Invalid values to save in database.'
+        raise SqliteDatabaseError(msg)
 
-    if len(table_name) == 0:
-        return False
+    if len(values_dict) != len(column_names):
+        msg = 'Inconsistent number of values for table {0}.'.format(table_name)
+        raise SqliteDatabaseError(msg)
 
-    db_column_names = get_column_names(database_name, table_name)
-    if len(db_column_names) == 0:
-        raise SqliteDatabaseError('Failed to update database.')
+    if idn is None:
+        msg = 'Invalid id number.'
+        raise SqliteDatabaseError(msg)  
 
     values = []
-    updates = ''
-
-    timestamp_split = _utils.get_timestamp().split('_')
-    date = timestamp_split[0]
-    hour = timestamp_split[1].replace('-', ':')
-
-    reverse_db_dict = {}
-    for k, v in db_dict.items():
-        reverse_db_dict[v['field']] = k
-
-    if 'id' in reverse_db_dict.keys():
-        setattr(record, reverse_db_dict['id'], idn)
-    else:
-        values.append(idn)
-        updates = updates + '`id`' + '=?, '
-
-    if 'date' in reverse_db_dict.keys():
-        if getattr(record, reverse_db_dict['date']) is None:
-            setattr(record, reverse_db_dict['date'], date)
-
-    if 'hour' in reverse_db_dict.keys():
-        if getattr(record, reverse_db_dict['hour']) is None:
-            setattr(record, reverse_db_dict['hour'], hour)
-
-    for attr_name in db_dict:
-        column = db_dict[attr_name]['field']
-        dtype = db_dict[attr_name]['dtype']
-
-        if column not in db_column_names:
-            raise SqliteDatabaseError('Failed to update database.')
-
-        updates = updates + '`' + column + '`' + '=?, '
-        if dtype in (_np.ndarray, list, tuple, dict):
-            value = getattr(record, attr_name)
-            if value is None:
-                values.append(value)
-            else:
-                if isinstance(value, _np.ndarray):
-                    value = value.tolist()
-                values.append(_json.dumps(value))
-        else:
-            values.append(getattr(record, attr_name))
-    updates = updates[:-2]
+    aux_str = ''
+    for column in column_names:
+        values.append(values_dict[column])
+        aux_str = aux_str + '`' + column + '`' + '=?, '
+    aux_str = aux_str[:-2]
+    
+    con = _sqlite.connect(database_name)
+    cur = con.cursor()
 
     try:
-        con = _sqlite.connect(database_name)
-        cur = con.cursor()
-
         if idn is not None:
             cur.execute("""UPDATE {0} SET {1} WHERE
-                        id = {2}""".format(table_name, updates, idn), values)
+                        id = {2}""".format(table_name, aux_str, idn), values)
             con.commit()
             con.close()
             return True
@@ -714,7 +732,6 @@ def update_database(record, idn):
             message = 'Invalid entry id.'
             raise SqliteDatabaseError(message)
 
-    except Exception:
+    except Exception as e:
         con.close()
-        message = ('Could not update {0} entry.'.format(table_name))
-        raise SqliteDatabaseError(message)
+        raise e

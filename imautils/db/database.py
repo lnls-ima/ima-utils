@@ -2,17 +2,24 @@
 
 """Implementation of functions to handle database documents."""
 
-import collections as _collections
-
 from . import sqlitedatabase as _sqlitedatabase
 from . import mongodatabase as _mongodatabase
+from . import utils as _utils
+
+
+class DatabaseError(Exception):
+    """Database exception."""
+
+    def __init__(self, message, *args):
+        """Initialize object."""
+        self.message = message
 
 
 class Database():
     """API for MongoDB or Sqlite database."""
 
     def __init__(
-            self, database_name=None, mongo=True, server='localhost'):
+            self, database_name=None, mongo=False, server='localhost'):
         """Initialize the object and connect to Mongo server, if applicable.
 
         Args:
@@ -26,7 +33,7 @@ class Database():
         self._server = server
 
         if self.mongo:
-            self.client = _mongodatabase.connect(server=self._server)
+            self.client = _mongodatabase.db_connect(server=self._server)
         else:
             self.client = None
 
@@ -42,9 +49,9 @@ class Database():
     def server(self, value):
         self._server = value
         if self.mongo:
-            self.client = _mongodatabase.connect(server=self._server)
+            self.client = _mongodatabase.db_connect(server=self._server)
 
-    def database_exists(self):
+    def db_database_exists(self):
         """Check if database exists.
 
         Returns:
@@ -53,14 +60,14 @@ class Database():
         """
         if self.mongo:
             if self.client is None:
-                self.client = _mongodatabase.connect(server=self._server)
-            return _mongodatabase.database_exists(
+                self.client = _mongodatabase.db_connect(server=self._server)
+            return _mongodatabase.db_database_exists(
                 self.client, self.database_name)
         else:
-            return _sqlitedatabase.database_exists(
+            return _sqlitedatabase.db_database_exists(
                 self.database_name)
 
-    def get_collections(self):
+    def db_get_collections(self):
         """Get database collection names.
 
         Returns:
@@ -69,11 +76,11 @@ class Database():
         """
         if self.mongo:
             if self.client is None:
-                self.client = _mongodatabase.connect(server=self._server)
-            return _mongodatabase.get_collections(
+                self.client = _mongodatabase.db_connect(server=self._server)
+            return _mongodatabase.db_get_collections(
                 self.client, self.database_name)
         else:
-            return _sqlitedatabase.get_tables(self.database_name)
+            return _sqlitedatabase.db_get_tables(self.database_name)
 
 
 class DatabaseCollection(Database):
@@ -81,7 +88,7 @@ class DatabaseCollection(Database):
 
     def __init__(
             self, database_name=None, collection_name=None,
-            mongo=True, server='localhost'):
+            mongo=False, server='localhost'):
         """Initialize the object and connect to Mongo server, if applicable.
 
         Args:
@@ -95,7 +102,7 @@ class DatabaseCollection(Database):
         super().__init__(
             database_name=database_name, mongo=mongo, server=server)
 
-    def collection_exists(self):
+    def db_collection_exists(self):
         """Check if the collection exists in database.
 
         Returns:
@@ -104,25 +111,25 @@ class DatabaseCollection(Database):
         """
         if self.mongo:
             if self.client is None:
-                self.client = _mongodatabase.connect(server=self.server)
-            return _mongodatabase.collection_exists(
+                self.client = _mongodatabase.db_connect(server=self.server)
+            return _mongodatabase.db_collection_exists(
                 self.client, self.database_name, self.collection_name)
         else:
-            return _sqlitedatabase.table_exists(
+            return _sqlitedatabase.db_table_exists(
                 self.database_name, self.collection_name)
 
-    def create_collection(self):
+    def db_create_collection(self):
         """Create collection, with id as ascending index."""
         if self.mongo:
             if self.client is None:
-                self.client = _mongodatabase.connect(server=self.server)
-            return _mongodatabase.create_collection(
+                self.client = _mongodatabase.db_connect(server=self.server)
+            return _mongodatabase.db_create_collection(
                 self.client, self.database_name, self.collection_name)
         else:
             msg = 'Empty tables are not supported in SQLite'
             raise NotImplementedError(msg)
 
-    def get_field_names(self):
+    def db_get_field_names(self):
         """Return the field names of the last collection's document.
 
         Take care when using this function with Mongo since MongoDB is
@@ -137,14 +144,14 @@ class DatabaseCollection(Database):
         """
         if self.mongo:
             if self.client is None:
-                self.client = _mongodatabase.connect(server=self.server)
-            return _mongodatabase.get_field_names(
+                self.client = _mongodatabase.db_connect(server=self.server)
+            return _mongodatabase.db_get_field_names(
                 self.client, self.database_name, self.collection_name)
         else:
-            return _sqlitedatabase.get_column_names(
+            return _sqlitedatabase.db_get_column_names(
                 self.database_name, self.collection_name)
 
-    def get_field_types(self):
+    def db_get_field_types(self):
         """Return the field types of the last collection's document.
 
         Take care when using this function with Mongo since MongoDB is
@@ -159,14 +166,14 @@ class DatabaseCollection(Database):
         """
         if self.mongo:
             if self.client is None:
-                self.client = _mongodatabase.connect(server=self.server)
-            return _mongodatabase.get_field_types(
+                self.client = _mongodatabase.db_connect(server=self.server)
+            return _mongodatabase.db_get_field_types(
                 self.client, self.database_name, self.collection_name)
         else:
-            return _sqlitedatabase.get_column_types(
+            return _sqlitedatabase.db_get_column_types(
                 self.database_name, self.collection_name)
 
-    def get_first_id(self):
+    def db_get_first_id(self):
         """Return the first document's id.
 
         Returns:
@@ -175,14 +182,14 @@ class DatabaseCollection(Database):
         """
         if self.mongo:
             if self.client is None:
-                self.client = _mongodatabase.connect(server=self.server)
-            return _mongodatabase.get_first_id(
+                self.client = _mongodatabase.db_connect(server=self.server)
+            return _mongodatabase.db_get_first_id(
                 self.client, self.database_name, self.collection_name)
         else:
-            return _sqlitedatabase.get_first_id(
+            return _sqlitedatabase.db_get_first_id(
                 self.database_name, self.collection_name)
 
-    def get_last_id(self):
+    def db_get_last_id(self):
         """Return the last document's id.
 
         Returns:
@@ -191,14 +198,14 @@ class DatabaseCollection(Database):
         """
         if self.mongo:
             if self.client is None:
-                self.client = _mongodatabase.connect(server=self.server)
-            return _mongodatabase.get_last_id(
+                self.client = _mongodatabase.db_connect(server=self.server)
+            return _mongodatabase.db_get_last_id(
                 self.client, self.database_name, self.collection_name)
         else:
-            return _sqlitedatabase.get_last_id(
+            return _sqlitedatabase.db_get_last_id(
                 self.database_name, self.collection_name)
 
-    def get_values(self, field):
+    def db_get_values(self, field):
         """Return field values of the database collection.
 
         Args:
@@ -210,14 +217,14 @@ class DatabaseCollection(Database):
         """
         if self.mongo:
             if self.client is None:
-                self.client = _mongodatabase.connect(server=self.server)
-            return _mongodatabase.get_values(
+                self.client = _mongodatabase.db_connect(server=self.server)
+            return _mongodatabase.db_get_values(
                 self.client, self.database_name, self.collection_name, field)
         else:
-            return _sqlitedatabase.get_values(
+            return _sqlitedatabase.db_get_values(
                 self.database_name, self.collection_name, field)
 
-    def get_value(self, field, idn):
+    def db_get_value(self, field, idn):
         """Get field value from entry id.
 
         Args:
@@ -230,15 +237,15 @@ class DatabaseCollection(Database):
         """
         if self.mongo:
             if self.client is None:
-                self.client = _mongodatabase.connect(server=self.server)
-            return _mongodatabase.get_value(
+                self.client = _mongodatabase.db_connect(server=self.server)
+            return _mongodatabase.db_get_value(
                 self.client, self.database_name,
                 self.collection_name, field, idn)
         else:
-            return _sqlitedatabase.get_value(
+            return _sqlitedatabase.db_get_value(
                 self.database_name, self.collection_name, field, idn)
 
-    def search_field(self, field, value):
+    def db_search_field(self, field, value):
         """Search field in database collection.
 
         Args:
@@ -251,20 +258,21 @@ class DatabaseCollection(Database):
         """
         if self.mongo:
             if self.client is None:
-                self.client = _mongodatabase.connect(server=self.server)
-            return _mongodatabase.search_field(
+                self.client = _mongodatabase.db_connect(server=self.server)
+            return _mongodatabase.db_search_field(
                 self.client, self.database_name,
                 self.collection_name, field, value)
         else:
-            return _sqlitedatabase.search_column(
+            return _sqlitedatabase.db_search_column(
                 self.database_name, self.collection_name, field, value)
 
-    def search_collection(
-            self, fields, filters=None, initial_idn=None, max_nr_lines=None):
+    def db_search_collection(
+            self, fields=None, filters=None,
+            initial_idn=None, max_nr_lines=None):
         """Filter collection entries.
 
         Args:
-            fields (list): list of field names to filter.
+            fields (list, optional): list of field names to filter.
             filters (list, optional): list of filters to apply (must have the
                                       same lengh as 'fields').
             initial_idn (int, optional): initial id to start filter.
@@ -276,15 +284,15 @@ class DatabaseCollection(Database):
         """
         if self.mongo:
             if self.client is None:
-                self.client = _mongodatabase.connect(server=self.server)
-            return _mongodatabase.search_collection(
+                self.client = _mongodatabase.db_connect(server=self.server)
+            return _mongodatabase.db_search_collection(
                 self.client, self.database_name, self.collection_name,
-                fields, filters, initial_idn=initial_idn,
+                fields=fields, filters=filters, initial_idn=initial_idn,
                 max_nr_lines=max_nr_lines)
         else:
-            return _sqlitedatabase.search_table(
+            return _sqlitedatabase.db_search_table(
                 self.database_name, self.collection_name,
-                fields, filters, initial_idn=initial_idn,
+                columns=fields, filters=filters, initial_idn=initial_idn,
                 max_nr_lines=max_nr_lines)
 
 
@@ -298,11 +306,15 @@ class DatabaseDocument(DatabaseCollection):
     # Example of db_dict:
     # db_dict = _collections.OrderedDict([
     #     ('attribute_name', {
-    #         'field': 'field_name', 'dtype': str, 'not_null': True}),
+    #         'field': 'field_name',
+    #         'dtype' (optional): str,
+    #         'not_null' (optional): False, # only used for sqlite databases
+    #         'unique' (optional): False, # only used for sqlite databases
+    #     }),
     # ])
 
     def __init__(
-            self, database_name=None, mongo=True, server='localhost'):
+            self, database_name=None, mongo=False, server='localhost'):
         """Initialize the object.
 
         Args:
@@ -311,55 +323,255 @@ class DatabaseDocument(DatabaseCollection):
             server (str): MongoDB server.
 
         """
+        self._create_attributes()
+        
         super().__init__(
             database_name=database_name,
             collection_name=self.collection_name,
             mongo=mongo,
             server=server)
 
-    def create_collection(self):
+    def __eq__(self, other):
+        """Equality method."""
+        if isinstance(other, self.__class__):
+            if len(self.__dict__) != len(other.__dict__):
+                return False
+
+            for key in self.__dict__:
+                if key not in other.__dict__:
+                    return False
+
+                self_value = self.__dict__[key]
+                other_value = other.__dict__[key]
+
+                if callable(self_value):
+                    pass
+                elif (isinstance(self_value, _np.ndarray) and
+                      isinstance(other_value, _np.ndarray)):
+                    if not self_value.tolist() == other_value.tolist():
+                        return False
+                elif (not isinstance(self_value, _np.ndarray) and
+                      not isinstance(other_value, _np.ndarray)):
+                    if not self_value == other_value:
+                        return False
+                else:
+                    return False
+
+            return True
+
+        else:
+            return False
+
+    def __ne__(self, other):
+        """Non-equality method."""
+        if isinstance(other, self.__class__):
+            return not self.__eq__(other)
+        return NotImplemented
+
+    def __setattr__(self, name, value):
+        """Set attribute."""
+        if name not in self.db_dict:
+            super().__setattr__(name, value)
+        else:
+            tp = self.db_dict[name]['dtype']
+            if value is None or isinstance(value, tp):
+                super().__setattr__(name, value)
+            elif tp == float and isinstance(value, int):
+                super().__setattr__(name, float(value))
+            elif tp == _np.ndarray:
+                super().__setattr__(
+                    name, _utils.to_array(value))
+            elif tp == tuple and isinstance(value, list):
+                super().__setattr__(name, tuple(value))
+            else:
+                raise TypeError('%s must be of type %s.' % (name, tp.__name__))
+
+    def __str__(self):
+        """Printable string representation of the object."""
+        fmtstr = '{0:<18s} : {1}\n'
+        r = ''
+        for key, value in self.__dict__.items():
+            r += fmtstr.format(key, str(value))
+        return r
+
+    def _create_attributes(self):
+        """Create attributes for db_dict keys."""
+        for attr in self.db_dict.keys():
+            if not hasattr(self, attr):
+                if 'dtype' in self.db_dict[attr].keys():
+                    dtype = self.db_dict[attr]['dtype']
+                else:
+                    dtype = str
+    
+                if dtype == _np.ndarray:
+                    setattr(self, attr, _np.array([]))
+                elif dtype == dict:
+                    setattr(self, attr, {})
+                elif dtype == list:
+                    setattr(self, attr, [])
+                elif dtype == list:
+                    setattr(self, attr, ())
+                else:
+                    setattr(self, attr, None)
+        return True
+
+    def clear(self):
+        """Clear object."""
+        for key in self.__dict__:
+            if isinstance(self.__dict__[key], _np.ndarray):
+                self.__dict__[key] = _np.array([])
+            elif isinstance(self.__dict__[key], dict):
+                self.__dict__[key] = {}
+            elif isinstance(self.__dict__[key], list):
+                self.__dict__[key] = []
+            elif isinstance(self.__dict__[key], tuple):
+                self.__dict__[key] = ()
+            else:
+                self.__dict__[key] = None
+        return True
+
+    def copy(self):
+        """Return a copy of the object."""
+        _copy = type(self)()
+        for key in self.__dict__:
+            if isinstance(self.__dict__[key], _np.ndarray):
+                _copy.__dict__[key] = _np.copy(self.__dict__[key])
+            elif isinstance(self.__dict__[key], list):
+                _copy.__dict__[key] = self.__dict__[key].copy()
+            else:
+                _copy.__dict__[key] = self.__dict__[key]
+        return _copy
+
+    def db_create_collection(self):
         """Create collection, with id as ascending index."""
         if self.mongo:
             if self.client is None:
-                self.client = _mongodatabase.connect(server=self.server)
-            return _mongodatabase.create_collection(
+                self.client = _mongodatabase.db_connect(server=self.server)
+            return _mongodatabase.db_create_collection(
                 self.client, self.database_name, self.collection_name)
         else:
-            return _sqlitedatabase.create_table(
+            return _sqlitedatabase.db_create_table(
                 self.database_name, self.collection_name, self.db_dict)
 
-    def save_to_database(self):
+    def db_save(self):
         """Insert a document into a database collection.
 
         Returns:
             True if update was sucessful, False otherwise.
 
         """
+        values_dict = {}
+        field_names = self.db_get_field_names()
+        date, hour = _utils.get_date_hour()
+                                      
+        reverse_db_dict = {}
+        for k, v in self.db_dict.items():
+            reverse_db_dict[v['field']] = k
+    
+        if 'id' in reverse_db_dict.keys():
+            setattr(self, reverse_db_dict['id'], None)
+        else:
+            values_dict['id'] = None
+    
+        if 'date' in reverse_db_dict.keys():
+            if getattr(self, reverse_db_dict['date']) is None:
+                setattr(self, reverse_db_dict['date'], date)
+        else:
+            values_dict['date'] = date
+    
+        if 'hour' in reverse_db_dict.keys():
+            if getattr(self, reverse_db_dict['hour']) is None:
+                setattr(self, reverse_db_dict['hour'], hour)
+        else:
+            values_dict['hour'] = hour
+    
+        for attr_name in self.db_dict:
+            field = self.db_dict[attr_name]['field']
+            
+            if 'dtype' in self.db_dict[attr_name].keys():
+                dtype = self.db_dict[attr_name]['dtype']
+            else:
+                dtype = _utils.DEFAULT_DTYPE
+    
+            if field not in field_names:
+                msg = 'Field {0:s} not found in database.'.format(field)
+                raise DatabaseError(msg)
+    
+            value = getattr(record, attr_name)
+            if value is not None and dtype in (_np.ndarray, list, tuple, dict):
+                if isinstance(value, _np.ndarray):
+                    value = value.tolist()
+                
+                if not self.mongo:
+                    value = _json.dumps(value)
+            
+            values_dict[attr_name] = value
+        
         if self.mongo:
             if self.client is None:
-                self.client = _mongodatabase.connect(server=self.server)
-            return _mongodatabase.save_to_database(self)
+                self.client = _mongodatabase.db_connect(server=self.server)
+            idn = _mongodatabase.db_save(
+                self.client, self.database_name,
+                self.collection_name, values_dict)
         else:
-            return _sqlitedatabase.save_to_database(self)
+            idn = _sqlitedatabase.db_save(
+                self.database_name, self.collection_name, values_dict)
+            
+        setattr(self, reverse_db_dict['id'], idn)
+        return True
 
-    def read_from_database(self, idn=None):
+    def db_read(self, idn=None):
         """Read a document (collection entry) from database.
 
         Args:
             idn (int, optional): entry id (returns last id if not specified).
 
         Returns:
-            True if update was sucessful, False otherwise.
+            True if update was successful, False otherwise.
 
         """
         if self.mongo:
             if self.client is None:
-                self.client = _mongodatabase.connect(server=self.server)
-            return _mongodatabase.read_from_database(self, idn=idn)
+                self.client = _mongodatabase.db_connect(server=self.server)
+            values_dict = _mongodatabase.db_read(self, idn=idn)
         else:
-            return _sqlitedatabase.read_from_database(self, idn=idn)
+            values_dict = _sqlitedatabase.db_read(self, idn=idn)
 
-    def update_database(self, idn):
+        if len(values_dict) == 0:
+            return False
+
+        field_names = self.db_get_field_names()
+
+        for attr_name in self.db_dict:
+            field = self.db_dict[attr_name]['field']
+            
+            if 'dtype' in self.db_dict[attr_name].keys():
+                dtype = self.db_dict[attr_name]['dtype']
+            else:
+                dtype = _utils.DEFAULT_DTYPE
+    
+            if field not in field_names:
+                msg = 'Field {0:s} not found in database.'.format(field)
+                raise DatabaseError(msg)
+    
+            try:
+                value = values_dict[field]
+                if value is not None and dtype in (
+                    _np.ndarray, list, tuple, dict):
+                    if not self.mongo:
+                        value = _json.loads(value)
+                    
+                    if dtype == _np.ndarray:
+                        value = _utils.to_array(value)
+                
+                setattr(self, attr_name, value)
+            
+            except AttributeError:
+                pass
+            
+        return True
+        
+    def db_update(self, idn):
         """Update a collection's document from database.
 
         Args:
@@ -369,9 +581,200 @@ class DatabaseDocument(DatabaseCollection):
             True if update was sucessful, False if update failed.
 
         """
+        values_dict = {}
+        field_names = self.db_get_field_names()
+        date, hour = _utils.get_date_hour()
+                                      
+        reverse_db_dict = {}
+        for k, v in self.db_dict.items():
+            reverse_db_dict[v['field']] = k
+    
+        if 'id' in reverse_db_dict.keys():
+            setattr(self, reverse_db_dict['id'], idn)
+        else:
+            values_dict['id'] = idn
+    
+        if 'date' in reverse_db_dict.keys():
+            if getattr(self, reverse_db_dict['date']) is None:
+                setattr(self, reverse_db_dict['date'], date)
+        else:
+            values_dict['date'] = date
+    
+        if 'hour' in reverse_db_dict.keys():
+            if getattr(record, reverse_db_dict['hour']) is None:
+                setattr(record, reverse_db_dict['hour'], hour)
+        else:
+            values_dict['hour'] = hour
+    
+        for attr_name in self.db_dict:
+            field = self.db_dict[attr_name]['field']
+            
+            if 'dtype' in self.db_dict[attr_name].keys():
+                dtype = self.db_dict[attr_name]['dtype']
+            else:
+                dtype = _utils.DEFAULT_DTYPE
+    
+            if field not in field_names:
+                msg = 'Field {0:s} not found in database.'.format(field)
+                raise DatabaseError(msg)
+    
+            value = getattr(record, attr_name)
+            if value is not None and dtype in (_np.ndarray, list, tuple, dict):
+                if isinstance(value, _np.ndarray):
+                    value = value.tolist()
+                
+                if not self.mongo:
+                    value = _json.dumps(value)
+            
+            values_dict[attr_name] = value        
+    
         if self.mongo:
             if self.client is None:
-                self.client = _mongodatabase.connect(server=self.server)
-            return _mongodatabase.update_database(self, idn)
+                self.client = _mongodatabase.db_connect(server=self.server)
+            return _mongodatabase.db_update(
+                self.client, self.database_name,
+                self.collection_name, values_dict, idn)
         else:
-            return _sqlitedatabase.update_database(self, idn)
+            return _sqlitedatabase.db_update(
+                self.database_name, self.collection_name, values_dict, idn)
+
+
+class DatabaseAndFileDocument(DatabaseDocument):
+    """Base class for database and file documents."""
+
+    label = ''
+    collection_name = ''
+    db_dict = {}
+
+    def __init__(
+            self, filename=None, database_name=None, idn=None,
+            mongo=False, server='localhost'):
+        """Initialize obejct.
+
+        Args:
+            filename (str): filepath.
+            database_name (str): database file path (sqlite) or name (mongo).
+            idn (int): id in database table (sqlite) / collection (mongo).
+            mongo (bool): flag indicating mongoDB (True) or sqlite (False).
+            server (str): MongoDB server.
+
+        """        
+        super().__init__(
+            database_name=database_name, mongo=mongo, server=server)
+
+        if filename is not None and idn is not None:
+            raise ValueError('Invalid arguments.')
+
+        if idn is not None and database_name is not None:
+            self.read_from_database()
+
+        elif filename is not None:
+            self.read_file(filename)  
+
+    @property
+    def default_filename(self):
+        """Return the default filename."""
+        timestamp = _utils.get_timestamp()
+        filename = '{0:1s}_{1:1s}.txt'.format(timestamp, self.label)
+        return filename
+ 
+    def read_file(self, filename):
+        """Read from file.
+
+        Args:
+        ----
+            filename (str): filepath.
+
+        """
+        flines = _utils.read_file(filename)
+        
+        for attr in self.db_dict:
+            if 'dtype' in self.db_dict[attr].keys():
+                tp = self.db_dict[attr]['dtype']
+            else:
+                tp = _utils.DEFAULT_DTYPE
+            
+            value_str = _utils.find_value(flines, attr, raise_error=False)
+            
+            if value_str is None or value_str == _utils.EMPTY_STR:
+                if dtype == _np.ndarray:
+                    setattr(self, attr, _np.array([]))
+                elif dtype == dict:
+                    setattr(self, attr, {})
+                elif dtype == list:
+                    setattr(self, attr, [])
+                elif dtype == list:
+                    setattr(self, attr, ())
+                else:
+                    setattr(self, attr, None)
+            
+            else:
+                if tp in (_np.ndarray, list, tuple, dict):
+                    value = _json.loads(value_str)
+                    if tp == _np.ndarray:
+                        value = _utils.to_array(value)
+                else:
+                    value = _utils.find_value(
+                        flines, attr, vtype=tp, raise_error=False)
+                
+                setattr(self, attr, value)
+        return True
+
+    def save_file(self, filename):
+        """Save to file."""
+        if not self.valid_data():
+            message = 'Invalid data.'
+            raise ValueError(message)
+
+        date, hour = _utils.get_date_hour()
+
+        if hasattr(self, 'date') and self.date is None:
+            self.date = date
+
+        if hasattr(self, 'hour') and self.hour is None:
+            self.hour = hour
+
+        with open(filename, mode='w') as f:
+            if len(self.label) != 0:
+                line = "{0:s} {1:s}\n\n".format(
+                    _utils.COMMENT_CHAR, self.label)
+                f.write(line)
+
+            for attr in self.db_dict:
+                value = getattr(self, attr)
+
+                if value is None:
+                    value = _utils.EMPTY_STR
+
+                else:
+                    if 'dtype' in self.db_dict[attr].keys():
+                        tp = self.db_dict[attr]['dtype']
+                    else:
+                        tp = _utils.DEFAULT_DTYPE
+                    
+                    if tp in (_np.ndarray, list, tuple, dict):
+                        if tp == _np.ndarray:
+                            value = value.tolist()
+                        value = _json.dumps(value).replace(' ', '')
+                    elif tp == str:
+                        if len(value) == 0:
+                            value = _utils.EMPTY_STR
+                        value = value.replace(' ', '_')
+
+                line = '{0:s}\t{1}\n'.format(attr.ljust(30), value)
+                f.write(line)
+        return True
+
+    def valid_data(self):
+        """Check if parameters are valid."""
+        values = []
+        for name in self.db_dict:
+            if 'not_null' in self.db_dict[name].keys():
+                not_null = self.db_dict[name]['not_null']
+            else:
+                not_null = _utils.DEFAULT_NOT_NULL
+            
+            if not_null and name not in ['idn', 'date', 'hour']: 
+                values.append(getattr(self, name))
+        
+        return all([v is not None for v in values])
