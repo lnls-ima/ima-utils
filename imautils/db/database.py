@@ -62,6 +62,21 @@ class Database():
         if self.mongo:
             self.client = _mongodatabase.db_connect(server=self._server)
 
+    def db_update_database(
+            self, database_name, mongo=False, server='localhost'):
+        """Upadte database and connect to Mongo server, if applicable.
+
+        Args:
+            database_name (str): database name.
+            mongo (bool): flag indicating mongoDB (True) or sqlite (False).
+            server (str): MongoDB server.
+
+        """
+        self.database_name = database_name
+        self.mongo = mongo
+        self.server = server
+        return True        
+
     def db_database_exists(self):
         """Check if database exists.
 
@@ -216,6 +231,22 @@ class DatabaseCollection(Database):
             return _sqlitedatabase.db_get_last_id(
                 self.database_name, self.collection_name)
 
+    def db_get_id_list(self):
+        """Return the first document's id.
+
+        Returns:
+            a id.
+
+        """
+        if self.mongo:
+            if self.client is None:
+                self.client = _mongodatabase.db_connect(server=self.server)
+            return _mongodatabase.db_get_values(
+                self.client, self.database_name, self.collection_name, 'id')
+        else:
+            return _sqlitedatabase.db_get_values(
+                self.database_name, self.collection_name, 'id')
+
     def db_get_values(self, field):
         """Return field values of the database collection.
 
@@ -339,7 +370,7 @@ class DatabaseDocument(DatabaseCollection):
                 if 'dtype' in self.db_dict[attr].keys():
                     dtype = self.db_dict[attr]['dtype']
                 else:
-                    dtype = str
+                    dtype = _utils.DEFAULT_DTYPE
 
                 if dtype == _np.ndarray:
                     setattr(self, attr, _np.array([]))
@@ -401,7 +432,10 @@ class DatabaseDocument(DatabaseCollection):
             super().__setattr__(name, value)
 
         else:
-            dtype = self.db_dict[name]['dtype']
+            if 'dtype' in self.db_dict[name].keys():
+                dtype = self.db_dict[name]['dtype']
+            else:
+                dtype = _utils.DEFAULT_DTYPE
 
             if isinstance(value, str) and value == _utils.EMPTY_STR:
                 value = None
@@ -439,17 +473,20 @@ class DatabaseDocument(DatabaseCollection):
 
     def clear(self):
         """Clear object."""
-        for key in self.__dict__:
-            if isinstance(self.__dict__[key], _np.ndarray):
-                self.__dict__[key] = _np.array([])
-            elif isinstance(self.__dict__[key], dict):
-                self.__dict__[key] = {}
-            elif isinstance(self.__dict__[key], list):
-                self.__dict__[key] = []
-            elif isinstance(self.__dict__[key], tuple):
-                self.__dict__[key] = ()
-            else:
-                self.__dict__[key] = None
+        for key in self.db_dict.keys():
+            try:
+                if isinstance(self.__dict__[key], _np.ndarray):
+                    self.__dict__[key] = _np.array([])
+                elif isinstance(self.__dict__[key], dict):
+                    self.__dict__[key] = {}
+                elif isinstance(self.__dict__[key], list):
+                    self.__dict__[key] = []
+                elif isinstance(self.__dict__[key], tuple):
+                    self.__dict__[key] = ()
+                else:
+                    self.__dict__[key] = None
+            except KeyError:
+                pass
         return True
 
     def copy(self):
