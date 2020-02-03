@@ -247,6 +247,25 @@ class DatabaseCollection(Database):
             return _sqlitedatabase.db_get_values(
                 self.database_name, self.collection_name, 'id')
 
+    def db_delete(self, idns):
+        """Delete documents from database collection.
+
+        Args:
+            idns (list): list of document ids.
+    
+        Returns:
+            True if successful, False otherwise.
+
+        """            
+        if self.mongo:
+            if self.client is None:
+                self.client = _mongodatabase.db_connect(server=self.server)
+            return _mongodatabase.db_delete(
+                self.client, self.database_name, self.collection_name, idns)
+        else:
+            return _sqlitedatabase.db_delete(
+                self.database_name, self.collection_name, idns)
+
     def db_get_values(self, field):
         """Return field values of the database collection.
 
@@ -395,8 +414,8 @@ class DatabaseDocument(DatabaseCollection):
             if len(self.__dict__) != len(other.__dict__):
                 return False
 
-            for key in self.__dict__:
-                if key not in other.__dict__:
+            for key in self.db_dict.keys():
+                if key not in other.db_dict.keys():
                     return False
 
                 self_value = self.__dict__[key]

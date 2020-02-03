@@ -229,6 +229,43 @@ def db_get_last_id(database_name, table_name):
         raise e
 
 
+def db_delete(database_name, table_name, idns):
+    """Delete entries from database table.
+
+    Args:
+        database_name (str): full file path to database.
+        table_name (str): database table name.
+        idns (list): list of entry ids.
+
+    Returns:
+        True if successful, False otherwise.
+
+    """
+    if not db_table_exists(database_name, table_name):
+        msg = 'Database table not found.'
+        raise SqliteDatabaseError(msg)
+
+    if idns is None or len(idns) == 0:
+        msg = 'Invalid entry ids.'
+        raise SqliteDatabaseError(msg)    
+
+    con = _sqlite.connect(database_name)
+    cur = con.cursor()
+    
+    try:
+        seq = ','.join(['?']*len(idns))
+        cmd = 'DELETE FROM {0} WHERE id IN ({1})'.format(
+            table_name, seq)
+        cur.execute(cmd, idns)
+        con.commit()
+        con.close()
+        return True
+    
+    except Exception as e:
+        con.close()
+        raise e
+
+
 def db_get_values(database_name, table_name, column):
     """Return column values of the database table.
 

@@ -243,6 +243,41 @@ def db_get_last_id(client, database_name, collection_name):
     return _doc['id']
 
 
+def db_delete(client, database_name, collection_name, idns):
+    """Delete documents from database collection.
+
+    Args:
+        client (MongoClient): a MongoClient instance.
+        database_name (str): database name.
+        collection_name (str): database collection name.
+        idns (list): list of document ids.
+
+    Returns:
+        True if successful, False otherwise.
+
+    """
+    if not db_collection_exists(client, database_name, collection_name):
+        msg = 'Database collection not found.'
+        raise MongoDatabaseError(msg)
+
+    if idns is None or len(idns) == 0:
+        msg = 'Invalid document ids.'
+        raise MongoDatabaseError(msg)    
+
+    _db = client[database_name]
+    _col = getattr(_db, collection_name)
+    _count = _col.estimated_document_count()
+    
+    if _count == 0:
+        return False
+    
+    result =_col.delete_many({'id': { '$in': idns}})
+    if result.deleted_count == len(idns):
+        return True
+    else:
+        return False
+
+
 def db_get_values(client, database_name, collection_name, field):
     """Return field values of the database table.
 
@@ -287,7 +322,7 @@ def db_get_value(client, database_name, collection_name, field, idn):
         database_name (str): database name.
         collection_name (str): database collection name.
         field (str): field name.
-        idn (int): entry id.
+        idn (int): document id.
 
     Returns:
         the parameter value.

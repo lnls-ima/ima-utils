@@ -27,14 +27,25 @@ class DatabaseTabWidget(_QTabWidget):
 
     def __init__(
             self, parent=None, database_name=None, mongo=None, server=None,
-            number_rows=100, max_number_rows=1000, max_str_size=100):
+            number_rows=100, max_number_rows=1000, max_str_size=100,
+            hidden_columns=None, hidden_tables=None):
         """Set up the ui."""
         super().__init__(parent)
 
-        self._number_rows = number_rows
-        self._max_number_rows = max_number_rows
-        self._max_str_size = max_str_size
+        self.number_rows = number_rows
+        self.max_number_rows = max_number_rows
+        self.max_str_size = max_str_size
+        
+        if hidden_columns is None:
+            self.hidden_columns = []
+        else:
+            self.hidden_columns = hidden_columns
 
+        if hidden_tables is None:
+            self.hidden_tables = []
+        else:
+            self.hidden_tables = hidden_tables
+        
         self.database_name = database_name
         self.mongo = mongo
         self.server = server
@@ -42,7 +53,6 @@ class DatabaseTabWidget(_QTabWidget):
         self.database_widgets = []
         self.clear()
         self.delete_widgets()
-        self.load_database()
 
     def delete_widgets(self):
         """Delete tables."""
@@ -52,6 +62,19 @@ class DatabaseTabWidget(_QTabWidget):
             self.database_widgets = []
         except Exception:
             _traceback.print_exc(file=_sys.stdout)
+
+    def delete_database_documents(self):
+        """Delete selected documents from database collection."""
+        try:
+            current_widget = self.get_current_database_widget()
+            current_widget.delete_documents()
+            self.update_database_tables()
+
+        except Exception:
+            _traceback.print_exc(file=_sys.stdout)
+            msg = 'Failed to delete database documents.'
+            _QMessageBox.critical(self, 'Failure', msg, _QMessageBox.Ok)
+            return
 
     def get_current_database_widget(self):
         """Get current databse widget."""
@@ -113,26 +136,34 @@ class DatabaseTabWidget(_QTabWidget):
         return current_widget.get_selected_ids()
 
     def load_database(self):
-        """Load database."""
-        try:
+        """Load database."""        
+        try:           
             self.database = _database.Database(
                 database_name=self.database_name,
                 mongo=self.mongo,
                 server=self.server)
             self.database_widgets = []
-            table_names = self.database.get_collections()
+            table_names = self.database.db_get_collections()
+
+            if self.hidden_tables is None:
+                hidden_tables = []
+            else:
+                hidden_tables = self.hidden_tables
 
             for table_name in table_names:
-                tab = DatabaseWidget(
-                    database_name=self.database_name,
-                    collection_name=table_name,
-                    mongo=self.mongo,
-                    server=self.server,
-                    number_rows=self._number_rows,
-                    max_number_rows=self._max_number_rows,
-                    max_str_size=self._max_str_size)
-                self.database_widgets.append(tab)
-                self.addTab(tab, table_name)
+                if table_name not in hidden_tables:
+                    tab = DatabaseWidget(
+                        database_name=self.database_name,
+                        table_name=table_name,
+                        mongo=self.mongo,
+                        server=self.server,
+                        number_rows=self.number_rows,
+                        max_number_rows=self.max_number_rows,
+                        max_str_size=self.max_str_size,
+                        hidden_columns=self.hidden_columns)
+                    
+                    self.database_widgets.append(tab)
+                    self.addTab(tab, table_name)
 
         except Exception:
             _traceback.print_exc(file=_sys.stdout)
@@ -175,22 +206,25 @@ class DatabaseTabWidget(_QTabWidget):
 class DatabaseWidget(_QWidget):
     """Database widget."""
 
-    _hidden_columns = []
-
     def __init__(
-            self, parent=None, database_name=None, collection_name=None,
-            mongo=None, server=None, number_rows=100,
-            max_number_rows=1000, max_str_size=100):
+            self, parent=None, database_name=None, table_name=None,
+            mongo=None, server=None, number_rows=100, max_number_rows=1000,
+            max_str_size=100, hidden_columns=None):
         """Set up the ui."""
         super().__init__(parent)
-
+        
+        if hidden_columns is None:
+            self._hidden_columns = []
+        else:
+            self._hidden_columns = hidden_columns
+        
         self.database_name = database_name
-        self.collection_name = collection_name
+        self.table_name = table_name
         self.mongo = mongo
         self.server = server
         self.database_collection = _database.DatabaseCollection(
             database_name=self.database_name,
-            collection_name=self.collection_name,
+            collection_name=self.table_name,
             mongo=self.mongo,
             server=self.server)
 
@@ -253,16 +287,23 @@ class DatabaseWidget(_QWidget):
 
     def update_table(self):
         """Update table."""
-        if self.database_name is None or self.collection_name is None:
+        if self.database_name is None or self.table_name is None:
             return
 
         self.blockSignals(True)
         self.table.setColumnCount(0)
         self.table.setRowCount(0)
 
-        self.column_names = self.database_collection.get_field_names()
-        self.data_types = self.database_collection.get_field_types()
-
+        all_column_names = self.database_collection.db_get_field_names()
+        all_data_types = self.database_collection.db_get_field_types()
+        
+        self.column_names = []
+        self.data_types = []
+        for name, dtype in zip(all_column_names, all_data_types):
+            if name not in self._hidden_columns:
+                self.column_names.append(name)
+                self.data_types.append(dtype)
+        
         self.table.setColumnCount(len(self.column_names))
         self.table.setHorizontalHeaderLabels(self.column_names)
 
@@ -271,14 +312,14 @@ class DatabaseWidget(_QWidget):
             self.table.setItem(0, j, _QTableWidgetItem(''))
 
         max_rows = self.sb_max_number_rows.value()
-        data = self.database_collection.search_collection(
+        data = self.database_collection.db_search_collection(
             self.column_names, max_nr_lines=max_rows)
 
         if len(data) > 0:
-            min_idn = self.database_collection.get_first_id()
+            min_idn = self.database_collection.db_get_first_id()
             self.sb_initial_id.setMinimum(min_idn)
 
-            max_idn = self.database_collection.get_last_id()
+            max_idn = self.database_collection.db_get_last_id()
             self.sb_initial_id.setMaximum(max_idn)
 
             self.sb_max_number_rows.setValue(len(data))
@@ -321,6 +362,23 @@ class DatabaseWidget(_QWidget):
                 item.setFlags(_Qt.ItemIsSelectable | _Qt.ItemIsEnabled)
                 self.table.setItem(i + 1, j, item)
 
+    def delete_documents(self):
+        """Delete selected documents from database collection."""
+        try:  
+            idns = self.get_selected_ids()
+            if len(idns) == 0:
+                return
+
+            msg = 'Delete selected database documents?'
+            reply = _QMessageBox.question(
+                self, 'Message', msg, _QMessageBox.Yes, _QMessageBox.No)
+            
+            if reply == _QMessageBox.Yes:
+                self.database_collection.db_delete(idns)
+        
+        except Exception:
+            _traceback.print_exc(file=_sys.stdout)
+
     def scroll_down(self):
         """Scroll down."""
         vbar = self.table.verticalScrollBar()
@@ -362,7 +420,7 @@ class DatabaseWidget(_QWidget):
             for idx in range(len(self.column_names)):
                 filters.append(self.table.item(0, idx).text())
 
-            self.data = self.database_collection.search_collection(
+            self.data = self.database_collection.db_search_collection(
                 self.column_names,
                 filters=filters,
                 initial_idn=initial_id,
