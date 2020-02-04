@@ -41,8 +41,8 @@ def Agilent34970A_factory(baseclass):
 
             """
             self._config_channels = []
-            self.temperature_channels = ['101', '105']
-            self.voltage_channels = ['102', '103', '107']
+            self.temperature_channels = []
+            self.voltage_channels = []
             self.commands = Agilent34970ACommands()
             super().__init__(log=log)
 
@@ -88,7 +88,6 @@ def Agilent34970A_factory(baseclass):
                     temp_scanlist = '(@' + ','.join(temp_channel_list) + ')'
                     _cmd = _cmd + self.commands.conf_temp + ' ' + temp_scanlist
 
-                print(_cmd)
                 self.send_command(_cmd)
                 _time.sleep(wait)
                 scanlist = '(@' + ','.join(all_channels) + ')'
