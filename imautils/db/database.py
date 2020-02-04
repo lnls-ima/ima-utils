@@ -725,7 +725,11 @@ class DatabaseAndFileDocument(DatabaseDocument):
     def default_filename(self):
         """Return the default filename."""
         timestamp = _utils.get_timestamp()
-        filename = '{0:1s}_{1:1s}.txt'.format(timestamp, self.label)
+        if self.idn is None:
+            filename = '{0:s}_{1:s}.txt'.format(timestamp, self.label)
+        else:
+            filename = '{0:s}_{1:s}_ID={2:s}.txt'.format(
+                timestamp, self.label, str(self.idn))
         return filename
 
     def read_file(self, filename):
