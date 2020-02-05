@@ -421,7 +421,9 @@ class DatabaseDocument(DatabaseCollection):
                 self_value = self.__dict__[key]
                 other_value = other.__dict__[key]
 
-                if callable(self_value):
+                if key in ['idn', 'date', 'hour']:
+                    pass
+                elif callable(self_value):
                     pass
                 elif (isinstance(self_value, _np.ndarray) and
                       isinstance(other_value, _np.ndarray)):

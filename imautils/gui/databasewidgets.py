@@ -190,7 +190,8 @@ class DatabaseTabWidget(_QTabWidget):
             self.clear()
             self.load_database()
             self.scroll_down_tables()
-            self.setCurrentIndex(idx)
+            if idx != -1:
+                self.setCurrentIndex(idx)
 
             self.blockSignals(False)
             _QApplication.restoreOverrideCursor()
