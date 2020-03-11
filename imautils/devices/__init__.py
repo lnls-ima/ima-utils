@@ -12,6 +12,7 @@ from . import PmacLV_IMS
 from . import FDI2056
 from . import F1000DRSLib
 from . import pydrs
+from . import pydrs_firmware_updated
 from . import utils
 
 
