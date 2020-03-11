@@ -276,6 +276,10 @@ class EthernetCom(object):
         try:
             _r_positon = r_position * 50000
             _msg = self.set_motor(motor)
+            _msg = _msg + self.commands.jog_stop
+            self.write(_msg)
+            self.read()
+            _msg = self.set_motor(motor)
             _msg = _msg + self.commands.jog_rel_position
             _msg = _msg + str(_r_positon)
             self.write(_msg)
@@ -299,6 +303,10 @@ class EthernetCom(object):
         try:
             _a_position = a_position * 50000
             _msg = self.set_motor(motor)
+            _msg = _msg + self.commands.jog_stop
+            self.write(_msg)
+            self.read()
+            _msg = self.set_motor(motor)
             _msg = _msg + self.commands.jog_abs_position
             _msg = _msg + str(_a_position)
             self.write(_msg)
@@ -320,6 +328,11 @@ class EthernetCom(object):
             False otherwise."""
 
         try:
+            _msg = self.set_motor('1,2,3,4')
+            _msg = _msg + self.commands.jog_stop
+            self.write(_msg)
+            self.read()
+            self.cfg_measurement_type('First Integral')
             _msg = self.commands.jog_axis
             _msg = _msg + axis + str(a_position)
             self.write(_msg)

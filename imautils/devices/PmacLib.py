@@ -9,7 +9,7 @@ if _sys.platform == 'win32':
     import win32com.client as _client
     import win32com.shell.shell as _shell
 else:
-    raise NotImplementedError('This Pmac module only works on windows.')
+    raise ModuleNotFoundError('This Pmac module only works on windows.')
 
 
 class PmacCommands():
