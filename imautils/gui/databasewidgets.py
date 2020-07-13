@@ -27,7 +27,7 @@ class DatabaseTabWidget(_QTabWidget):
 
     def __init__(
             self, parent=None, database_name=None, mongo=None, server=None,
-            number_rows=100, max_number_rows=1000, max_str_size=100,
+            number_rows=40, max_number_rows=1000, max_str_size=50,
             hidden_columns=None, hidden_tables=None):
         """Set up the ui."""
         super().__init__(parent)
