@@ -166,7 +166,8 @@ def NMR_factory(baseclass):
                         _time.sleep(wait)               
 
                     else:
-                        self.send_command(self.commands.search)            
+                        self.send_command(
+                            self.commands.search + str(frequency))            
                         _time.sleep(wait)
 
                     self.send_command(
