@@ -623,13 +623,22 @@ class DatabaseDocument(DatabaseCollection):
             field = self.db_dict[attr_name]['field']
 
             if field not in field_names:
-                msg = 'Field {0:s} not found in database.'.format(field)
-                raise DatabaseError(msg)
+                if 'not_null' in self.db_dict[attr_name].keys():
+                    not_null = self.db_dict[attr_name]['not_null']
+                else:
+                    not_null = _utils.DEFAULT_NOT_NULL
 
-            try:
+                if not_null:
+                    msg = 'Field {0:s} not found in database.'.format(field)
+                    raise DatabaseError(msg)
+                else:
+                    value = None
+            
+            else:
                 value = values_dict[field]
-                setattr(self, attr_name, value)
 
+            try:    
+                setattr(self, attr_name, value)
             except AttributeError:
                 pass
 
