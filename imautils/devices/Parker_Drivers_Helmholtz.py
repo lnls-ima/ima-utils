@@ -60,6 +60,32 @@ def ParkerDriver_factory(baseclass):
             self.commands = ParkerDriverCommands()
             super().__init__(log=log)
 
+        def set_parameter(
+                self, address, command, value,
+                sleep=0.1, tol=0.001):
+            cmd = str(address) + command + str(value)
+            self.send_command(cmd)
+
+            cmd = str(address) + command
+            self.send_command(cmd)        
+
+            _time.sleep(sleep)
+
+            try:
+                result = self.read_from_device()
+                result = result.replace('\n', '')
+                result = result.replace('\r', '')
+                result = result.replace('*', '')
+                result = result.replace(command, '')
+
+                if abs(float(result) - value) <= tol:
+                    return True
+                else:
+                    return False
+
+            except Exception:
+                return False
+
         def config_mode(self, address, mode, direction):
             # Adjust normal (0) or continuous mode (1)
             if mode == 0:
