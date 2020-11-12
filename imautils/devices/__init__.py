@@ -8,7 +8,7 @@ from . import HeidenhainLib
 from . import NMRLib
 from . import UDCLib
 from . import Parker_Drivers
-from . import Parker_Drivers_Helmholtz
+from . import ParkerDriverLib
 from . import PmacLV_IMS
 from . import FDI2056
 from . import F1000DRSLib
