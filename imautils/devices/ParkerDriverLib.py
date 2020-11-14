@@ -69,7 +69,7 @@ def ParkerDriver_factory(baseclass):
             self.send_command(cmd)
 
             cmd = str(address) + param
-            self.send_command(cmd)  
+            self.send_command(cmd)
 
             _time.sleep(sleep)
 
@@ -111,7 +111,7 @@ def ParkerDriver_factory(baseclass):
                 resolution, speed, acceleration, steps):
             if not self.connected:
                 return False
-            
+
             # Set resolution
             if not self.set_and_check_parameter(
                     address, self.commands.resolution, resolution):
@@ -199,7 +199,7 @@ def ParkerDriver_factory(baseclass):
         def stop_motor(self, address):
             if not self.connected:
                 return False
-            
+
             cmd = str(address) + self.commands.stop
             return self.send_command(cmd)
 

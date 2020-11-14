@@ -281,17 +281,20 @@ class SerialInterface():
 
         Returns:
             list of serial ports."""
-        _l = _list_ports.comports()
-        _ports = []
+        _l = [p[0] for p in _list_ports.comports()]
 
+        if len(_l) == 0:
+            return []
+
+        _ports = []
         _s = ''
         _k = str
-        if 'COM' in _l[0][0]:
+        if 'COM' in _l[0]:
             _s = 'COM'
             _k = int
 
         for key in _l:
-            _ports.append(key.device.strip(_s))
+            _ports.append(key.strip(_s))
         _ports.sort(key=_k)
         _ports = [_s + key for key in _ports]
 

@@ -15,7 +15,7 @@ class PDI5150Commands(object):
 
     def __init__(self):
         """Load commands."""
-        self.search_index = 'IND,+'  # Habilita a procura de indice do integrador
+        self.search_index = 'IND,'  # Procura de indice do integrador
         self.start_measurement = 'RUN'  # Inicia coleta com o integrador
         self.stop_measurement = 'BRK'  # Para coleta com o integrador
         self.read_status = 'STB,'  # Le status do integrador
@@ -24,12 +24,12 @@ class PDI5150Commands(object):
         self.gain = 'SGA,*,'  # Configura ganho integrador
         self.clear_over_range = 'CVR,*'  # Limpa Saturacao
         self.trigger_source_encoder = 'TRS,E,'  # Tipo de Trigger
-        self.trigger_sequence = 'TRI,-,'  # Sequencia Trigger
-        self.immediate_reading = 'IMD,1'  # Habilita leitura de dados antes do fim das medidas
-        self.cumulative  = 'CUM,0'  # Configura Dados para serem armazenados separadamente
+        self.trigger_sequence = 'TRI,'  # Sequencia Trigger
+        self.immediate_reading = 'IMD,1'  # Habilita leitura durante medida
+        self.cumulative = 'CUM,0'  # Configura Dados para serem armazenados
         self.reset_counter = 'ZCT'  # Zerar contador de pulsos
         self.end_of_data = 'EOD'  # End of Data
-        self.synchronization  = 'SYN,1'  # Sincroniza
+        self.synchronization = 'SYN,1'  # Sincroniza
         self.offset_mode = 'ADJ,'  # Curto Integrador
         self.read_counter = 'RCT'  # Leitura Pulso Encoder
 
@@ -52,7 +52,7 @@ def PDI5150_factory(baseclass):
         def status(self, register):
             if not self.connected:
                 return False
-            
+
             cmd = self.commands.read_status + str(register)
             self.send_command(cmd)
             _time.sleep(0.1)
@@ -60,40 +60,48 @@ def PDI5150_factory(baseclass):
 
         def config_encoder_trigger(
                 self, encoder_resolution, direction,
-                start_trigger, nr_intervals, 
+                start_trigger, nr_intervals,
                 interval_size, wait=0.1):
             if not self.connected:
                 return False
 
-            cmd = self.commands.trigger_source_encoder + str(encoder_resolution)
+            cmd = (
+                self.commands.trigger_source_encoder +
+                str(encoder_resolution))
             self.send_command(cmd)
             _time.sleep(wait)
 
             cmd = (
-                self.commands.trigger_sequence + str(start_trigger) + '/' +
-                str(nr_intervals) + ',' + str(interval_size)
+                self.commands.trigger_sequence +
+                str(direction) + ',' +
+                str(start_trigger) + '/' +
+                str(nr_intervals) + ',' +
+                str(interval_size)
             )
             self.send_command(cmd)
             _time.sleep(wait)
-            
+
             return True
 
         def configure_encoder_reading(self, encoder_resolution):
             if not self.connected:
                 return False
-            
-            cmd = self.commands.trigger_source_encoder + str(encoder_resolution)
+
+            cmd = (
+                self.commands.trigger_source_encoder +
+                str(encoder_resolution))
             self.send_command(cmd)
             return True
 
-        def configure_homing(self, wait=0.1, stop_flag=None):
+        def configure_homing(self, direction, wait=0.1):
             if not self.connected:
                 return False
 
             self.send_command(self.commands.reset_counter)
             _time.sleep(wait)
 
-            self.send_command(self.commands.search_index)
+            cmd = self.commands.search_index + str(direction)
+            self.send_command(cmd)
             _time.sleep(wait)
             return True
 
@@ -110,50 +118,11 @@ def PDI5150_factory(baseclass):
             self.send_command(self.commands.offset_mode + channel + ',1')
             return True
 
-        def offset_mode_off(self, channel, gain, wait=0.1):
+        def offset_mode_off(self, channel):
             if not self.connected:
                 return False
 
             self.send_command(self.commands.offset_mode + channel + ',0')
-            return True
-
-        def configure(
-                self, channel, encoder_resolution, direction,
-                start_trigger, nr_intervals,
-                interval_size, gain, wait=0.1):
-            if not self.connected:
-                return False
-
-            # Parar todas as coletas e preparar integrador
-            self.send_command(self.commands.stop_measurement)
-            _time.sleep(wait)
-
-            # Configurar Canal a ser utilizado
-            self.send_command(self.commands.channel + channel)
-            _time.sleep(wait)
-
-            # Configura trigger
-            self.config_encoder_trigger(
-                encoder_resolution, direction,
-                start_trigger, nr_intervals,
-                interval_size, wait=wait)
-                
-            # Configurar para leitura imediata
-            self.send_command(self.commands.immediate_reading)
-            _time.sleep(wait)
-
-            # Preparar para armazenamento
-            self.send_command(self.commands.cumulative)
-            _time.sleep(wait)
-
-            # Configurar End of Data
-            self.send_command(self.commands.end_of_data)
-            _time.sleep(wait)
-
-            # Parar todas as coletas e preparar integrador
-            cmd = self.commands.gain + str(gain)
-            self.send_command(cmd)
-            _time.sleep(wait)
             return True
 
     return PDI5150
