@@ -49,13 +49,21 @@ def PDI5150_factory(baseclass):
             self.conversion_factor = 1E-8
             super().__init__(log=log)
 
-        def status(self, register):
+        def read_status(self, register, wait=0.1):
             if not self.connected:
                 return False
 
             cmd = self.commands.read_status + str(register)
             self.send_command(cmd)
-            _time.sleep(0.1)
+            _time.sleep(wait)
+            return self.read_from_device()
+
+        def read_encoder(self, wait=0.1):
+            if not self.connected:
+                return False
+
+            self.send_command(self.commands.read_counter)
+            _time.sleep(wait)
             return self.read_from_device()
 
         def config_encoder_trigger(
@@ -67,7 +75,7 @@ def PDI5150_factory(baseclass):
 
             cmd = (
                 self.commands.trigger_source_encoder +
-                str(encoder_resolution))
+                str(int(int(encoder_resolution)/4)))
             self.send_command(cmd)
             _time.sleep(wait)
 
@@ -89,7 +97,7 @@ def PDI5150_factory(baseclass):
 
             cmd = (
                 self.commands.trigger_source_encoder +
-                str(encoder_resolution))
+                str(int(int(encoder_resolution)/4)))
             self.send_command(cmd)
             return True
 
