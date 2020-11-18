@@ -68,6 +68,8 @@ def ParkerDriver_factory(baseclass):
             cmd = str(address) + param + str(value)
             self.send_command(cmd)
 
+            return True
+
             cmd = str(address) + param
             self.send_command(cmd)
 
@@ -83,7 +85,7 @@ def ParkerDriver_factory(baseclass):
                 result = result.split('*')[-1]
                 result = result.replace(param, '')
                 if param == 'MR':
-                    return result in str(value)
+                    return value in str(result)
                 else:
                     return result == str(value)
             except Exception:
