@@ -103,7 +103,7 @@ class GPIBInterface():
             if self.inst is None:
                 return None
 
-            return self.inst.write(command.encode('utf-8')) == len(command)
+            return self.inst.write(command)
         except Exception:
             if self.logger is not None:
                 self.logger.error('exception', exc_info=True)
