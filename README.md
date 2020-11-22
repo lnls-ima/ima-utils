@@ -1,5 +1,5 @@
 # ima-utils
-LNLS magnet's group utilities package
+Magnet's group utilities package
 
 ## Installation
 
