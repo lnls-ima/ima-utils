@@ -60,38 +60,7 @@ def ParkerDriver_factory(baseclass):
             self.commands = ParkerDriverCommands()
             super().__init__(log=log)
 
-        def set_and_check_parameter(
-                self, address, param, value, sleep=0.01):
-            if not self.connected:
-                return False
-
-            cmd = str(address) + param + str(value)
-            self.send_command(cmd)
-
-            return True
-
-            cmd = str(address) + param
-            self.send_command(cmd)
-
-            _time.sleep(sleep)
-
-            try:
-                result = self.read_from_device().replace(
-                    '\n', '').replace('\r', '')
-
-                if not result:
-                    return False
-
-                result = result.split('*')[-1]
-                result = result.replace(param, '')
-                if param == 'MR':
-                    return value in str(result)
-                else:
-                    return result == str(value)
-            except Exception:
-                return False
-
-        def config_mode(self, address, mode, direction):
+        def config_mode(self, address, mode, direction, wait=0.01):
             if not self.connected:
                 return False
 
@@ -110,62 +79,72 @@ def ParkerDriver_factory(baseclass):
 
         def config_motor(
                 self, address, mode, direction,
-                resolution, speed, acceleration, steps):
+                resolution, speed, acceleration,
+                steps, wait=0.01):
             if not self.connected:
                 return False
 
             # Set resolution
-            if not self.set_and_check_parameter(
-                    address, self.commands.resolution, resolution):
-                return False
+            cmd = str(address) + self.commands.resolution + str(resolution)
+            self.send_command(cmd)
+            _time.sleep(wait)
 
             # Enable limit switch
             cmd = str(address) + self.commands.limit_switch_on
             self.send_command(cmd)
+            _time.sleep(wait)
 
-            # Configure Driver
+            # Adjust normal (0) or continuous mode (1)
             if mode == 0:
                 cmd = str(address) + self.commands.normal_mode
             else:
                 cmd = str(address) + self.commands.continuous_mode
             self.send_command(cmd)
+            _time.sleep(wait)
 
-            if not self.set_and_check_parameter(
-                    address, self.commands.speed, speed):
-                return False
+            # Configure speed
+            cmd = str(address) + self.commands.speed + str(speed)
+            self.send_command(cmd)
+            _time.sleep(wait)
 
-            if not self.set_and_check_parameter(
-                    address, self.commands.acceleration, acceleration):
-                return False
+            # Configure aceleration
+            cmd = str(address) + self.commands.acceleration + str(acceleration)
+            self.send_command(cmd)
+            _time.sleep(wait)
 
-            if not self.set_and_check_parameter(
-                    address, self.commands.distance, steps):
-                return False
+            # Configure number of steps
+            cmd = str(address) + self.commands.distance + str(int(steps))
+            self.send_command(cmd)
+            _time.sleep(wait)
 
             # Adjust clockwise (+) or counterclockwise direction (-)
             cmd = str(address) + self.commands.direction + direction
             self.send_command(cmd)
+            _time.sleep(wait)
 
             return True
 
-        def move_to_positive_limit(self, address, speed, acceleration):
+        def move_to_positive_limit(
+                self, address, speed, acceleration, wait=0.01):
             if not self.connected:
                 return False
 
             try:
-                if not self.set_and_check_parameter(
-                        address, self.commands.speed, speed):
-                    return False
-
-                if not self.set_and_check_parameter(
-                        address, self.commands.acceleration, acceleration):
-                    return False
+                cmd = str(address) + self.commands.speed + str(speed)
+                self.send_command(cmd)
+                _time.sleep(wait)
+                
+                cmd = str(address) + self.commands.acceleration + str(acceleration)
+                self.send_command(cmd)
+                _time.sleep(wait)
 
                 cmd = str(address) + self.commands.continuous_mode
                 self.send_command(cmd)
+                _time.sleep(wait)
 
                 cmd = str(address) + self.commands.direction + '+'
                 self.send_command(cmd)
+                _time.sleep(wait)
 
                 self.move_motor(address)
                 return True
@@ -173,24 +152,27 @@ def ParkerDriver_factory(baseclass):
             except Exception:
                 return False
 
-        def move_to_negative_limit(self, address, speed, acceleration):
+        def move_to_negative_limit(
+                self, address, speed, acceleration, wait=0.01):
             if not self.connected:
                 return False
 
             try:
-                if not self.set_and_check_parameter(
-                        address, self.commands.speed, speed):
-                    return False
-
-                if not self.set_and_check_parameter(
-                        address, self.commands.acceleration, acceleration):
-                    return False
+                cmd = str(address) + self.commands.speed + str(speed)
+                self.send_command(cmd)
+                _time.sleep(wait)
+                
+                cmd = str(address) + self.commands.acceleration + str(acceleration)
+                self.send_command(cmd)
+                _time.sleep(wait)
 
                 cmd = str(address) + self.commands.continuous_mode
                 self.send_command(cmd)
+                _time.sleep(wait)
 
                 cmd = str(address) + self.commands.direction + '-'
                 self.send_command(cmd)
+                _time.sleep(wait)
 
                 self.move_motor(address)
                 return True
@@ -212,14 +194,14 @@ def ParkerDriver_factory(baseclass):
             cmd = str(address) + self.commands.move
             return self.send_command(cmd)
 
-        def ready(self, address):
+        def ready(self, address, wait=0.01):
             if not self.connected:
                 return False
 
             cmd = str(address) + self.commands.status
             self.send_command(cmd)
 
-            _time.sleep(0.01)
+            _time.sleep(wait)
 
             try:
                 result = self.read_from_device()
@@ -231,14 +213,13 @@ def ParkerDriver_factory(baseclass):
             else:
                 return False
 
-        def limits(self, address):
+        def limits(self, address, wait=0.25):
             if not self.connected:
                 return False
 
             cmd = str(address) + self.commands.i_status
             self.send_command(cmd)
-
-            _time.sleep(0.25)
+            _time.sleep(wait)
 
             result = self.read_from_device()
 

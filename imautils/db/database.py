@@ -760,7 +760,7 @@ class DatabaseAndFileDocument(DatabaseDocument):
                 timestamp, self.label, str(self.idn))
         return filename
 
-    def read_file(self, filename):
+    def read_file(self, filename, check_nr_columns=True):
         """Read from file.
 
         Args:
@@ -790,8 +790,15 @@ class DatabaseAndFileDocument(DatabaseDocument):
                 for idx, attr in enumerate(attrs):
                     setattr(self, attr, data[:, idx])
             else:
-                msg = 'Inconsistent number of columns in file: %s' % filename
-                raise FileDocumentError(msg)
+                if not check_nr_columns:
+                    idx = 0
+                    nr_columns = int(data.shape[1]/len(attrs))
+                    for attr in attrs:
+                        setattr(self, attr, data[:, idx:idx+nr_columns])
+                        idx += nr_columns
+                else:
+                    msg = 'Inconsistent number of columns in file: %s' % filename
+                    raise FileDocumentError(msg)
 
         return True
 
