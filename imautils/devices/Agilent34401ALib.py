@@ -36,6 +36,7 @@ class Agilent34401ACommands():
     def _config(self):
         """Configure measure."""
         self.config_volt = ':CONF:VOLT:DC DEF, DEF'
+        self.config_temp = ':CONF:RES 100,0.0001'
         self.trig = ':TRIG:SOUR EXT'
 
     def _clear(self):
@@ -77,6 +78,16 @@ def Agilent34401A_factory(baseclass):
                 return False
 
         def config(self):
+            """Configure device for voltage measurements."""
+            self.config_voltage()
+
+        def config_voltage(self):
+            """Configure device for voltage measurements."""
+            self.reset()
+            self.send_command(self.commands.config_volt)
+            self.send_command(self.commands.clear)
+
+        def config_temperature(self):
             """Configure device for voltage measurements."""
             self.reset()
             self.send_command(self.commands.config_volt)
