@@ -37,6 +37,7 @@ class Agilent34401ACommands():
         """Configure measure."""
         self.config_volt = ':CONF:VOLT:DC DEF, DEF'
         self.config_temp = ':CONF:RES 100,0.0001'
+        self.config_temp_4w = ':CONF:FRES 100,0.0001'
         self.trig = ':TRIG:SOUR EXT'
 
     def _clear(self):
@@ -90,6 +91,14 @@ def Agilent34401A_factory(baseclass):
             _time.sleep(wait)
 
         def config_temperature(self, wait=0.1):
+            """Configure device for voltage measurements."""
+            self.reset(wait=wait)
+            self.send_command(self.commands.config_temp_4w)
+            _time.sleep(wait)
+            self.send_command(self.commands.clear)
+            _time.sleep(wait)
+
+        def config_temperature_4w(self, wait=0.1):
             """Configure device for voltage measurements."""
             self.reset(wait=wait)
             self.send_command(self.commands.config_temp)
