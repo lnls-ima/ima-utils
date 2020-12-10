@@ -403,3 +403,11 @@ def configure_logging(logfile):
         format='%(asctime)s\t%(levelname)s\t%(message)s',
         datefmt='%m/%d/%Y %H:%M:%S',
         filemode='a+')
+
+
+def pt100_resistance_to_temperature(resistance):
+    a = -0.580195*1e-6
+    b = 3.90802*1e-3
+    pt = 100
+    t = (-b + (b**2 - 4*a*(1 - resistance/pt))**(1/2))/(2*a)
+    return t
