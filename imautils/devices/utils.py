@@ -4,8 +4,8 @@
 import logging as _logging
 import pyvisa as _visa
 import serial as _serial
-import minimalmodbus as _minimalmodbus
 import serial.tools.list_ports as _list_ports
+import minimalmodbus as _minimalmodbus
 
 
 class GPIBInterface():
@@ -70,7 +70,7 @@ class GPIBInterface():
                 if self.logger is not None:
                     self.logger.error('exception', exc_info=True)
                 return False
-        
+
         except Exception:
             if self.logger is not None:
                 self.logger.error('exception', exc_info=True)
@@ -393,6 +393,90 @@ class ModBusInterface():
             if self.logger is not None:
                 self.logger.error('exception', exc_info=True)
             return ''
+
+
+class EthernetInterface():
+    """Class for ethernet protocol communication."""
+
+    def __init__(self, log=False):
+        """Initiaze all variables and prepare log.
+
+        Args:
+            log (bool): True to use event logging, False otherwise.
+
+        """
+        self.interface = 'ethernet'
+        self.inst = None
+        self.log = log
+        self.logger = None
+        self.log_events()
+
+    @property
+    def connected(self):
+        """Return True if the port is open, False otherwise."""
+        if self.inst is not None:
+            return True
+        else:
+            return False
+
+    def log_events(self):
+        """Prepare log file to save info, warning and error status."""
+        if self.log:
+            self.logger = _logging.getLogger()
+            self.logger.setLevel(_logging.ERROR)
+
+    def connect(self, inst_name):
+        """Connects to FDI2056 integrator.
+
+        Args:
+            bench (int): rotating coil bench number.
+
+        Returns:
+            True if successful, False otherwise."""
+        try:
+            resource_manager = _visa.ResourceManager()
+            name = 'TCPIP0::' + str(inst_name) + '::inst0::INSTR'
+            self.inst = resource_manager.open_resource(name)
+            return True
+
+        except Exception:
+            return False
+
+    def disconnect(self):
+        """Disconnects from FDI2056 integrator.
+
+        Returns:
+            True if successful, False otherwise."""
+        try:
+            self.inst.close()
+            return True
+        except Exception:
+            return False
+
+    def send_command(self, command):
+        """Sends a command to the integrator.
+
+        Args:
+            command (str): command to be sent to the integrator.
+
+        Returns:
+            True if successful, False otherwise."""
+        try:
+            self.inst.write(command + '\n')
+            return True
+        except Exception:
+            return False
+
+    def read_from_device(self):
+        """Reads integrator response.
+
+        Returns:
+            ans (str): answer from the integrator."""
+        try:
+            _ans = self.inst.read()
+        except Exception:
+            _ans = ''
+        return _ans
 
 
 def configure_logging(logfile):
