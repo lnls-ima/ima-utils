@@ -425,7 +425,7 @@ class EthernetInterface():
             self.logger = _logging.getLogger()
             self.logger.setLevel(_logging.ERROR)
 
-    def connect(self, inst_name):
+    def connect(self, address, board=0, host='FDI2056'):
         """Connects to FDI2056 integrator.
 
         Args:
@@ -435,7 +435,7 @@ class EthernetInterface():
             True if successful, False otherwise."""
         try:
             resource_manager = _visa.ResourceManager()
-            name = 'TCPIP0::' + str(inst_name) + '::inst0::INSTR'
+            name = 'TCPIP' + str(board) + '::' + host + '-' + '{0:04d}'.format(address) + '::inst0::INSTR'
             self.inst = resource_manager.open_resource(name)
             return True
 

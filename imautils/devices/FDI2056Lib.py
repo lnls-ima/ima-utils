@@ -93,6 +93,8 @@ class FDI2056Commands():
         self.opc = "*OPC"
         # properly shuts the system down
         self.power_off = "SYST:POW OFF"
+        # search encoder index
+        self.search_index = "IND,"
 
 
 def FDI2056_factory(baseclass):
@@ -109,17 +111,19 @@ def FDI2056_factory(baseclass):
             self.commands = FDI2056Commands()
             super().__init__(log=log)
 
-        def connect(self, inst_name):
+        def connect(self, address, board=0, host="FDI2056"):
             """Connects to FDI2056 integrator.
 
             Args:
-                inst_name (str): integrator identification
-                    (FDI2056-0004, FDI2056-0005 or FDI2056-0031).
+                address (int): device address,
+                board (int): TCPIP board (default 0),
+                host (str): host name (default 'FDI2056')
 
             Returns:
-                True if successful, False otherwise."""
+                True if successful, False otherwise.
+            """
             try:
-                if super().connect(inst_name):
+                if super().connect(address, board=board, host=host):
                     self.configure_status()
                     self.send_command(self.commands.short_circuit_off)
                     return True
@@ -201,7 +205,15 @@ def FDI2056_factory(baseclass):
             self.send_command(self.commands.trigger_source_enc)
             return True
 
-        def config_trig_timer(self, rate, npts):
+        def configure_homing(self, direction):
+            if not self.connected:
+                return False
+
+            cmd = self.commands.search_index + str(direction)
+            self.send_command(cmd)
+            return True
+
+        def configure_trig_timer(self, rate, npts):
             """Configures timer trigger.
 
             Args:
@@ -284,7 +296,7 @@ def FDI2056_factory(baseclass):
 
             Returns:
                 ans (int): number of flux data stored in the integrator."""
-            self.send_commands(self.commands.data_count)
+            self.send_command(self.commands.data_count)
             return int(self.read_from_device().strip('\n'))
 
         def shut_down(self):
