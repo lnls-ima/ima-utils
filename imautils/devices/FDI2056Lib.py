@@ -8,6 +8,7 @@ Versao 1.0
 """
 
 import time as _time
+import numpy as _np
 
 from . import utils as _utils
 
@@ -57,7 +58,7 @@ class FDI2056Commands():
         self.trigger_tim_rate = "TRIG:TIM "
         # configures number of triggers to complete a measurement
         self.trigger_count = "TRIG:COUN "
-        # number of enconder pulses to generate a trigger
+        # number of events to generate a trigger
         self.trigger_ecount = "TRIG:ECO "
         # configures trigger direction as FORward or BACKward
         self.trigger_dir = "TRIG:ENC "
@@ -185,6 +186,9 @@ def FDI2056_factory(baseclass):
 
         def configure_status(self):
             """Configures the status registers."""
+            if not self.connected:
+                return False
+            
             self.send_command(self.commands.clear_status)
             self.send_command(self.commands.status_en + '255')
             self.send_command(self.commands.event_en + '255')
@@ -221,9 +225,13 @@ def FDI2056_factory(baseclass):
                 rate (int): frequency of the internal periodic signal [kHz].
                 npts (int): number of integration points per measurement.
             """
+            if not self.connected:
+                return False
+
             self.send_command(self.commands.trigger_source_tim)
             self.send_command(self.commands.trigger_tim_rate + str(rate))
-            self.send_command(self.commands.trigger_count + str(npts))
+            self.send_command(self.commands.trigger_count + str(npts+1))
+            self.send_command(self.commands.trigger_ecount + "1")
             self.send_command(self.commands.calc_flux)
             self.send_command(self.commands.disable_timestamp)
             return True
@@ -234,8 +242,11 @@ def FDI2056_factory(baseclass):
             Args:
                 npts (int): number of integration points per measurement.
             """
+            if not self.connected:
+                return False
+
             self.send_command(self.commands.trigger_source_ext)
-            self.send_command(self.commands.trigger_count + str(npts))
+            self.send_command(self.commands.trigger_count + str(npts+1))
             self.send_command(self.commands.calc_flux)
             self.send_command(self.commands.disable_timestamp)
             return True
@@ -254,7 +265,10 @@ def FDI2056_factory(baseclass):
                     measurement.
                 nturns (int): number of turns per measurement.
             """
-            trig_count = str(integration_points*nturns)
+            if not self.connected:
+                return False
+            
+            trig_count = str(integration_points*nturns + 1)
             trig_interval = str(round(encoder_pulses/integration_points))
             pulses = str(int(encoder_pulses/4))
 
@@ -275,14 +289,22 @@ def FDI2056_factory(baseclass):
 
         def start_measurement(self):
             """Starts measurement."""
+            if not self.connected:
+                return False
+
             self.send_command(self.commands.stop + ';' + self.commands.start)
             return True
 
-        def calibrate(self):
+        def calibrate(self, wait=1):
             """Calibrates the integrator."""
+            if not self.connected:
+                return False
+
             self.send_command(self.commands.short_circuit_on)
             self.send_command(self.commands.calibrate)
+            _time.sleep(wait)
             self.send_command(self.commands.short_circuit_off)
+            return True
 
         def get_data(self):
             """Gets data from the integrator.
@@ -291,7 +313,19 @@ def FDI2056_factory(baseclass):
                 ans (str): string containg the flux data."""
             data_count = str(self.get_data_count())
             self.send_command(self.commands.fetch_array + data_count + ', 12')
-            return self.read_from_device()
+            return self.read_from_device().strip('\n')
+
+        def get_data_array(self):
+            """Gets data array from the integrator.
+
+            Returns:
+                ans (array): array containg the flux data."""
+            try:
+                data = self.get_data()
+                data_split = data.replace(' WB', '').replace(' V', '').split(',')
+                return _np.array(data_split, dtype=float)
+            except Exception:
+                return _np.array([])
 
         def get_data_count(self):
             """Gets number of flux data stored in the integrator.
