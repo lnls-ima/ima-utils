@@ -109,6 +109,7 @@ def FDI2056_factory(baseclass):
                 log (bool): True to use event logging, False otherwise.
             """
             self.commands = FDI2056Commands()
+            self.conversion_factor = 1
             super().__init__(log=log)
 
         def connect(self, address, board=0, host="FDI2056"):
@@ -275,6 +276,7 @@ def FDI2056_factory(baseclass):
         def start_measurement(self):
             """Starts measurement."""
             self.send_command(self.commands.stop + ';' + self.commands.start)
+            return True
 
         def calibrate(self):
             """Calibrates the integrator."""

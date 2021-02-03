@@ -16,8 +16,8 @@ class PDI5150Commands(object):
     def __init__(self):
         """Load commands."""
         self.search_index = 'IND,'  # Procura de indice do integrador
-        self.start_measurement = 'RUN'  # Inicia coleta com o integrador
-        self.stop_measurement = 'BRK'  # Para coleta com o integrador
+        self.start = 'RUN'  # Inicia coleta com o integrador
+        self.stop = 'BRK'  # Para coleta com o integrador
         self.read_status = 'STB,'  # Le status do integrador
         self.enquiry = 'ENQ'  # Busca Resultados do integrador
         self.channel = 'CHA,'  # Escolha de Canal
@@ -66,7 +66,7 @@ def PDI5150_factory(baseclass):
             _time.sleep(wait)
             return self.read_from_device()
 
-        def config_encoder_trigger(
+        def configure_trig_encoder(
                 self, encoder_resolution, direction,
                 start_trigger, nr_intervals,
                 interval_size, wait=0.1):
