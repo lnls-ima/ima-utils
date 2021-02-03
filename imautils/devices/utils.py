@@ -2,7 +2,7 @@
 """Device communication interfaces."""
 
 import logging as _logging
-import visa as _visa
+import pyvisa as _visa
 import serial as _serial
 import minimalmodbus as _minimalmodbus
 import serial.tools.list_ports as _list_ports
@@ -59,20 +59,18 @@ class GPIBInterface():
         try:
             resource_manager = _visa.ResourceManager()
             name = 'GPIB' + str(board) + '::' + str(address) + '::INSTR'
-            inst = resource_manager.open_resource(name.encode('utf-8'))
+            inst = resource_manager.open_resource(name)
 
-            if inst.resource_name == (name):
-                try:
-                    self.inst = inst
-                    self.inst.timeout = timeout
-                    return True
-                except Exception:
-                    self.inst.close()
-                    if self.logger is not None:
-                        self.logger.error('exception', exc_info=True)
-                    return False
-            else:
+            try:
+                self.inst = inst
+                self.inst.timeout = timeout
+                return True
+            except Exception:
+                self.inst.close()
+                if self.logger is not None:
+                    self.logger.error('exception', exc_info=True)
                 return False
+        
         except Exception:
             if self.logger is not None:
                 self.logger.error('exception', exc_info=True)
