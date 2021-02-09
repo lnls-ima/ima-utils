@@ -96,8 +96,6 @@ class FDI2056Commands():
         self.opc = "*OPC"
         # properly shuts the system down
         self.power_off = "SYST:POW OFF"
-        # search encoder index
-        self.search_index = "IND,"
 
 
 def FDI2056_factory(baseclass):
@@ -208,16 +206,13 @@ def FDI2056_factory(baseclass):
 
             pulses = str(int(encoder_pulses/4))
             self.send_command(self.commands.config_encoder + pulses + "'")
-            self.send_command(self.commands.arm_encoder)
-            self.send_command(self.commands.trigger_source_enc)
+            # self.send_command(self.commands.arm_encoder)
+            # self.send_command(self.commands.trigger_source_enc)
             return True
 
         def configure_homing(self, direction):
             if not self.connected:
                 return False
-
-            cmd = self.commands.search_index + str(direction)
-            self.send_command(cmd)
             return True
 
         def configure_trig_timer(self, rate, npts):
@@ -310,9 +305,19 @@ def FDI2056_factory(baseclass):
 
             self.send_command(self.commands.short_circuit_on)
             self.send_command(self.commands.calibrate)
-            _time.sleep(wait)
-            self.send_command(self.commands.short_circuit_off)
             return True
+
+        def short_circuit_off(self):
+            if not self.connected:
+                return False
+
+            return self.send_command(self.commands.short_circuit_off)      
+
+        def short_circuit_on(self):
+            if not self.connected:
+                return False
+
+            return self.send_command(self.commands.short_circuit_on) 
 
         def get_data(self):
             """Gets data from the integrator.
@@ -346,6 +351,10 @@ def FDI2056_factory(baseclass):
         def shut_down(self):
             """Properly shuts the system down."""
             self.send_command(self.commands.power_off)
+
+        def reset(self):
+            """Reset integrator."""
+            self.send_command(self.commands.reset)
 
     return FDI2056
 

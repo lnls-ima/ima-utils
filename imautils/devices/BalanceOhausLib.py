@@ -38,33 +38,36 @@ def BalanceOhaus_factory(baseclass):
             self.commands = BalanceOhausCommands()
             super().__init__(log=log)
 
-        def zero_display(self, wait=0.1):
+        def zero_display(self):
             try:
-                self.send_command(self.command.zero)
+                self.send_command(self.commands.zero)
             except Exception:
                 if self.logger is not None:
                     self.logger.error('exception', exc_info=True)
 
-        def turn_on(self, wait=0.1):
+        def turn_on(self):
             try:
-                self.send_command(self.command.on)
+                self.send_command(self.commands.on)
             except Exception:
                 if self.logger is not None:
                     self.logger.error('exception', exc_info=True)
 
-        def turn_off(self, wait=0.1):
+        def turn_off(self):
             try:
-                self.send_command(self.command.off)
+                self.send_command(self.commands.off)
             except Exception:
                 if self.logger is not None:
                     self.logger.error('exception', exc_info=True)
 
-        def read_weight(self, wait=0.1):
+        def read_weight(self, wait=0.3):
             try:
-                self.send_command(self.command.weight)
+                self.send_command(self.commands.weight)
                 _time.sleep(wait)
 
-                return self.read_from_device()
+                resp = self.read_from_device()
+                weight = float(
+                    resp.split('\r\n')[6].replace('g', '').strip())
+                return weight
             except Exception:
                 if self.logger is not None:
                     self.logger.error('exception', exc_info=True)
