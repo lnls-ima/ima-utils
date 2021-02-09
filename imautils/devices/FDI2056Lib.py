@@ -1,10 +1,10 @@
 # -*- coding: utf-8 -*-
 """
 Created on 11/01/2013
-Update on 23/11/2017
-Versao 1.0
+Update on 09/02/2021
+Versao 2.0
 @author: James Citadini
-@coauthor: Vitor Soares
+@coauthors: Vitor Soares and Luana Vilela
 """
 
 import time as _time
@@ -26,6 +26,8 @@ class FDI2056Commands():
         self.data_count = "DATA:COUN?"
         # configures encoder as trigger_ref source
         self.arm_encoder = "ARM:SOUR ENC"
+        # configures immediate exit of arm state
+        self.arm_imm = "ARM:SOUR IMM"
         # configures trigger_ref
         self.arm_ref = "ARM:ENC "
         # configures partial integrals (integrates only between triggers)
@@ -228,6 +230,8 @@ def FDI2056_factory(baseclass):
             if not self.connected:
                 return False
 
+            self.send_command(self.commands.short_circuit_off)
+            self.send_command(self.commands.arm_imm)
             self.send_command(self.commands.trigger_source_tim)
             self.send_command(self.commands.trigger_tim_rate + str(rate))
             self.send_command(self.commands.trigger_count + str(npts+1))
@@ -245,6 +249,8 @@ def FDI2056_factory(baseclass):
             if not self.connected:
                 return False
 
+            self.send_command(self.commands.short_circuit_off)
+            self.send_command(self.commands.arm_imm)
             self.send_command(self.commands.trigger_source_ext)
             self.send_command(self.commands.trigger_count + str(npts+1))
             self.send_command(self.commands.calc_flux)
@@ -268,13 +274,15 @@ def FDI2056_factory(baseclass):
             if not self.connected:
                 return False
             
-            trig_count = str(integration_points*nturns + 1)
+            trig_count = str(integration_points*nturns)
             trig_interval = str(round(encoder_pulses/integration_points))
             pulses = str(int(encoder_pulses/4))
 
+            self.send_command(self.commands.short_circuit_off)
             self.send_command(self.commands.config_encoder + pulses + "'")
-            self.send_command(self.commands.trigger_source_enc)
+            self.send_command(self.commands.arm_encoder)
             self.send_command(self.commands.arm_ref + str(trigger_ref))
+            self.send_command(self.commands.trigger_source_enc)
 
             if direction in (0, '-', 'BACK'):
                 self.send_command(self.commands.trigger_dir + 'BACK')
@@ -295,7 +303,7 @@ def FDI2056_factory(baseclass):
             self.send_command(self.commands.stop + ';' + self.commands.start)
             return True
 
-        def calibrate(self, wait=1):
+        def calibrate(self, wait=10):
             """Calibrates the integrator."""
             if not self.connected:
                 return False

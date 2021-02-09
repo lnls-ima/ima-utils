@@ -449,6 +449,7 @@ class EthernetInterface():
             True if successful, False otherwise."""
         try:
             self.inst.close()
+            self.inst = None
             return True
         except Exception:
             return False
