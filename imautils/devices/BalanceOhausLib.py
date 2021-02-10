@@ -59,7 +59,7 @@ def BalanceOhaus_factory(baseclass):
                 if self.logger is not None:
                     self.logger.error('exception', exc_info=True)
 
-        def read_weight(self, wait=0.3):
+        def read_mass(self, wait=0.3):
             try:
                 self.send_command(self.commands.weight)
                 _time.sleep(wait)
