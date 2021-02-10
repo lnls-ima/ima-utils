@@ -71,7 +71,7 @@ def BalanceOhaus_factory(baseclass):
             except Exception:
                 if self.logger is not None:
                     self.logger.error('exception', exc_info=True)
-                return ''
+                return None
 
     return BalanceOhaus
 
