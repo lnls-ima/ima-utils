@@ -44,6 +44,14 @@ class ParkerDriverCommands(object):
         self.resolution = 'MR'
         # {read input status}
         self.i_status = 'IS'
+        # {set output 1 high}
+        self.output_1_high = 'O1X'
+        # {set output 2 high}
+        self.output_2_high = 'OX1'
+        # {set output 1 low}
+        self.output_1_low = 'O0X'
+        # {set output 2 low}
+        self.output_2_low = 'OX0'
 
 
 def ParkerDriver_factory(baseclass):
@@ -231,6 +239,35 @@ def ParkerDriver_factory(baseclass):
         def kill(self, address):
             cmd = str(address) + self.commands.kill
             return self.send_command(cmd)
+
+        def set_output_1_high(self, address):
+            if not self.connected:
+                return False
+
+            cmd = str(address) + self.commands.output_1_high
+            return self.send_command(cmd)
+
+        def set_output_2_high(self, address):
+            if not self.connected:
+                return False
+
+            cmd = str(address) + self.commands.output_2_high
+            return self.send_command(cmd)
+
+        def set_output_1_low(self, address):
+            if not self.connected:
+                return False
+
+            cmd = str(address) + self.commands.output_1_low
+            return self.send_command(cmd)
+
+        def set_output_2_low(self, address):
+            if not self.connected:
+                return False
+
+            cmd = str(address) + self.commands.output_2_low
+            return self.send_command(cmd)
+
 
     return ParkerDriver
 
