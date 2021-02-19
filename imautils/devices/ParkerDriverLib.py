@@ -52,6 +52,8 @@ class ParkerDriverCommands(object):
         self.output_1_low = 'O0X'
         # {set output 2 low}
         self.output_2_low = 'OX0'
+        # {set absolute position to zero}
+        self.zero_abs_position = 'PZ'
 
 
 def ParkerDriver_factory(baseclass):
@@ -268,6 +270,56 @@ def ParkerDriver_factory(baseclass):
             cmd = str(address) + self.commands.output_2_low
             return self.send_command(cmd)
 
+        def all_input_status(self, address, wait=0.25):
+            """ Read the status of all driver inputs.
+                Input arguments:
+                    address: the driver address
+                    wait: period to wait after command is sent
+                Output:
+                    status: array of boolean representing each input
+                            or None
+                        idx 0: trigger bit 1
+                        idx 1: triggerr bit 2
+                        idx 2: trigger bit 3
+                        idx 3: home enable
+                        idx 4: FLT
+                        idx 5: CCW limit
+                        idx 6: CW limit
+                        idx 7: Sequence Select 1
+                        idx 8: Sequence Select 2
+                        idx 9: Sequence Select 3 """
+            if not self.connected:
+                return None
+
+            cmd = str(address) + self.commands.i_status
+            self.send_command(cmd)
+            _time.sleep(wait)
+
+            result = self.read_from_device()
+
+            result = result.replace('1IS','').replace('2IS','')
+            result = result.replace('3IS','').replace('4IS','')
+            result = result.replace('5IS','').replace('6IS','')
+            result = result.replace('7IS','').replace('8IS','')
+            result = result.replace('*','')
+            result = result.replace('\r','').replace('\n','')
+
+            status_list = [c == '1' for c in result]
+
+            return status_list
+
+        def zero_absolute_position(self, address):
+            """ Set absolute position counter to zero.
+                Input arguments:
+                    address: the driver address
+                Output:
+                    status: True on success
+                            False if failed """
+            if not self.connected:
+                return False
+
+            cmd = str(address) + self.commands.zero_abs_position
+            return self.send_command(cmd)
 
     return ParkerDriver
 
