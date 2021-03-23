@@ -61,7 +61,7 @@ def BalanceOhaus_factory(baseclass):
 
         def read_mass(self, wait=0.3):
             try:
-                self.send_command(self.commands.weight)
+                self.send_command(self.commands.immediate_weight)
                 _time.sleep(wait)
 
                 resp = self.read_from_device()
