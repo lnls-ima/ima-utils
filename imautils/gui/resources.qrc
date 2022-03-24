@@ -1,0 +1,12 @@
+<RCC>
+  <qresource prefix="ui">
+    <file>ui/databasewidget.ui</file>
+  </qresource>
+  <qresource prefix="icon">
+    <file>icon/clear.svg</file>
+    <file>icon/refresh.svg</file>
+    <file>icon/database_plus.svg</file>
+    <file>icon/save.svg</file>
+  </qresource>
+  <qresource prefix="qm"/>
+</RCC>

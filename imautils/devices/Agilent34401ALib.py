@@ -36,6 +36,8 @@ class Agilent34401ACommands():
     def _config(self):
         """Configure measure."""
         self.config_volt = ':CONF:VOLT:DC DEF, DEF'
+        self.config_res = ':CONF:RES 100,0.0001'
+        self.config_res_4w = ':CONF:FRES 100,0.0001'
         self.trig = ':TRIG:SOUR EXT'
 
     def _clear(self):
@@ -64,6 +66,11 @@ def Agilent34401A_factory(baseclass):
             self.commands = Agilent34401ACommands()
             super().__init__(log=log)
 
+        @staticmethod
+        def pt100_resistance_to_temperature(resistance):
+            return _utils.pt100_resistance_to_temperature(
+                resistance)
+
         def connect(self, *args, **kwargs):
             """Connect with the device."""
             if super().connect(*args, **kwargs):
@@ -76,11 +83,33 @@ def Agilent34401A_factory(baseclass):
             else:
                 return False
 
-        def config(self):
+        def config(self, wait=0.1):
             """Configure device for voltage measurements."""
-            self.reset()
+            self.config_voltage(wait=wait)
+
+        def config_voltage(self, wait=0.1):
+            """Configure device for voltage measurements."""
+            self.reset(wait=wait)
             self.send_command(self.commands.config_volt)
+            _time.sleep(wait)
             self.send_command(self.commands.clear)
+            _time.sleep(wait)
+
+        def config_resistance(self, wait=0.1):
+            """Configure device for voltage measurements."""
+            self.reset(wait=wait)
+            self.send_command(self.commands.config_res)
+            _time.sleep(wait)
+            self.send_command(self.commands.clear)
+            _time.sleep(wait)
+
+        def config_resistance_4w(self, wait=0.1):
+            """Configure device for voltage measurements."""
+            self.reset(wait=wait)
+            self.send_command(self.commands.config_res_4w)
+            _time.sleep(wait)
+            self.send_command(self.commands.clear)
+            _time.sleep(wait)
 
         def read(self, wait=0.5):
             """Read from the device."""
@@ -93,9 +122,10 @@ def Agilent34401A_factory(baseclass):
             except Exception:
                 return None
 
-        def reset(self):
+        def reset(self, wait=0.1):
             """Reset device."""
             self.send_command(self.commands.reset)
+            _time.sleep(wait)
 
     return Agilent34401A
 

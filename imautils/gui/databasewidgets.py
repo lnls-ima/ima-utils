@@ -27,7 +27,7 @@ class DatabaseTabWidget(_QTabWidget):
 
     def __init__(
             self, parent=None, database_name=None, mongo=None, server=None,
-            number_rows=100, max_number_rows=1000, max_str_size=100,
+            number_rows=40, max_number_rows=1000, max_str_size=50,
             hidden_columns=None, hidden_tables=None):
         """Set up the ui."""
         super().__init__(parent)
@@ -35,7 +35,7 @@ class DatabaseTabWidget(_QTabWidget):
         self.number_rows = number_rows
         self.max_number_rows = max_number_rows
         self.max_str_size = max_str_size
-        
+
         if hidden_columns is None:
             self.hidden_columns = []
         else:
@@ -45,7 +45,7 @@ class DatabaseTabWidget(_QTabWidget):
             self.hidden_tables = []
         else:
             self.hidden_tables = hidden_tables
-        
+
         self.database_name = database_name
         self.mongo = mongo
         self.server = server
@@ -136,8 +136,8 @@ class DatabaseTabWidget(_QTabWidget):
         return current_widget.get_selected_ids()
 
     def load_database(self):
-        """Load database."""        
-        try:           
+        """Load database."""
+        try:
             self.database = _database.Database(
                 database_name=self.database_name,
                 mongo=self.mongo,
@@ -152,7 +152,7 @@ class DatabaseTabWidget(_QTabWidget):
 
             for table_name in table_names:
                 if table_name not in hidden_tables:
-                    tab = DatabaseWidget(
+                    tab = DatabaseCollectionWidget(
                         database_name=self.database_name,
                         table_name=table_name,
                         mongo=self.mongo,
@@ -161,7 +161,7 @@ class DatabaseTabWidget(_QTabWidget):
                         max_number_rows=self.max_number_rows,
                         max_str_size=self.max_str_size,
                         hidden_columns=self.hidden_columns)
-                    
+
                     self.database_widgets.append(tab)
                     self.addTab(tab, table_name)
 
@@ -204,7 +204,7 @@ class DatabaseTabWidget(_QTabWidget):
                 self, 'Failure', 'Failed to update database.', _QMessageBox.Ok)
 
 
-class DatabaseWidget(_QWidget):
+class DatabaseCollectionWidget(_QWidget):
     """Database widget."""
 
     def __init__(
@@ -213,12 +213,12 @@ class DatabaseWidget(_QWidget):
             max_str_size=100, hidden_columns=None):
         """Set up the ui."""
         super().__init__(parent)
-        
+
         if hidden_columns is None:
             self._hidden_columns = []
         else:
             self._hidden_columns = hidden_columns
-        
+
         self.database_name = database_name
         self.table_name = table_name
         self.mongo = mongo
@@ -297,14 +297,14 @@ class DatabaseWidget(_QWidget):
 
         all_column_names = self.database_collection.db_get_field_names()
         all_data_types = self.database_collection.db_get_field_types()
-        
+
         self.column_names = []
         self.data_types = []
         for name, dtype in zip(all_column_names, all_data_types):
             if name not in self._hidden_columns:
                 self.column_names.append(name)
                 self.data_types.append(dtype)
-        
+
         self.table.setColumnCount(len(self.column_names))
         self.table.setHorizontalHeaderLabels(self.column_names)
 
@@ -365,7 +365,7 @@ class DatabaseWidget(_QWidget):
 
     def delete_documents(self):
         """Delete selected documents from database collection."""
-        try:  
+        try:
             idns = self.get_selected_ids()
             if len(idns) == 0:
                 return
@@ -373,10 +373,10 @@ class DatabaseWidget(_QWidget):
             msg = 'Delete selected database documents?'
             reply = _QMessageBox.question(
                 self, 'Message', msg, _QMessageBox.Yes, _QMessageBox.No)
-            
+
             if reply == _QMessageBox.Yes:
                 self.database_collection.db_delete(idns)
-        
+
         except Exception:
             _traceback.print_exc(file=_sys.stdout)
 

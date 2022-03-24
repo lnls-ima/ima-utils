@@ -53,13 +53,13 @@ def db_get_tables(database_name):
 
     con = _sqlite.connect(database_name)
     cur = con.cursor()
-    
+
     try:
         cur.execute("SELECT name FROM sqlite_master WHERE type='table';")
         table_names = [r[0] for r in cur.fetchall()]
         con.close()
         return table_names
-    
+
     except Exception as e:
         con.close()
         raise e
@@ -118,14 +118,14 @@ def db_get_column_names(database_name, table_name):
 
     con = _sqlite.connect(database_name)
     cur = con.cursor()
-    
+
     try:
         cur.execute("PRAGMA TABLE_INFO({0})".format(table_name))
         info = cur.fetchall()
         column_names = [i[1] for i in info]
         con.close()
         return column_names
-    
+
     except Exception as e:
         con.close()
         raise e
@@ -154,16 +154,16 @@ def db_get_column_types(database_name, table_name):
 
     con = _sqlite.connect(database_name)
     cur = con.cursor()
-    
+
     try:
         cur.execute("PRAGMA TABLE_INFO({0})".format(table_name))
         info = cur.fetchall()
         con.close()
-    
+
         column_types = {}
         for i in info:
             column_types[i[1]] = db_type_dict[i[2]]
-    
+
         return column_types
 
     except Exception as e:
@@ -194,7 +194,7 @@ def db_get_first_id(database_name, table_name):
         idn = cur.fetchone()[0]
         con.close()
         return idn
-    
+
     except Exception as e:
         con.close()
         raise e
@@ -223,7 +223,7 @@ def db_get_last_id(database_name, table_name):
         idn = cur.fetchone()[0]
         con.close()
         return idn
-    
+
     except Exception as e:
         con.close()
         raise e
@@ -247,11 +247,11 @@ def db_delete(database_name, table_name, idns):
 
     if idns is None or len(idns) == 0:
         msg = 'Invalid entry ids.'
-        raise SqliteDatabaseError(msg)    
+        raise SqliteDatabaseError(msg)
 
     con = _sqlite.connect(database_name)
     cur = con.cursor()
-    
+
     try:
         seq = ','.join(['?']*len(idns))
         cmd = 'DELETE FROM {0} WHERE id IN ({1})'.format(
@@ -260,7 +260,7 @@ def db_delete(database_name, table_name, idns):
         con.commit()
         con.close()
         return True
-    
+
     except Exception as e:
         con.close()
         raise e
@@ -284,17 +284,17 @@ def db_get_values(database_name, table_name, column):
 
     if column is None or len(column) == 0:
         msg = 'Invalid column name.'
-        raise SqliteDatabaseError(msg)    
+        raise SqliteDatabaseError(msg)
 
     con = _sqlite.connect(database_name)
     cur = con.cursor()
-    
+
     try:
         cur.execute('SELECT {0} FROM {1}'.format(column, table_name))
         column = [d[0] for d in cur.fetchall()]
         con.close()
         return column
-    
+
     except Exception as e:
         con.close()
         raise e
@@ -319,11 +319,11 @@ def db_get_value(database_name, table_name, column, idn):
 
     if column is None or len(column) == 0:
         msg = 'Invalid column name.'
-        raise SqliteDatabaseError(msg)    
+        raise SqliteDatabaseError(msg)
 
     if idn is None:
         msg = 'Invalid id number.'
-        raise SqliteDatabaseError(msg)    
+        raise SqliteDatabaseError(msg)
 
     con = _sqlite.connect(database_name)
     cur = con.cursor()
@@ -336,7 +336,7 @@ def db_get_value(database_name, table_name, column, idn):
             value = value[0]
         con.close()
         return value
-    
+
     except Exception as e:
         con.close()
         raise e
@@ -361,11 +361,11 @@ def db_search_column(database_name, table_name, column, value):
 
     if column is None or len(column) == 0:
         msg = 'Invalid column name.'
-        raise SqliteDatabaseError(msg)    
+        raise SqliteDatabaseError(msg)
 
     if value is None:
         msg = 'Invalid value to search.'
-        raise SqliteDatabaseError(msg)    
+        raise SqliteDatabaseError(msg)
 
     column_names = db_get_column_names(database_name, table_name)
     if column not in column_names:
@@ -390,7 +390,7 @@ def db_search_column(database_name, table_name, column, value):
             list_of_dicts.append(_d)
 
         return list_of_dicts
-    
+
     except Exception as e:
         con.close()
         raise e
@@ -419,7 +419,7 @@ def db_search_table(
 
     if columns is None or len(columns) == 0:
         columns = db_get_column_names(database_name, table_name)
-        
+
     if isinstance(columns, str):
         columns = [columns]
 
@@ -435,7 +435,7 @@ def db_search_table(
 
     if len(filters_list) != len(column_names):
         msg = 'Inconsistent columns and filters arguments.'
-        raise SqliteDatabaseError(msg)        
+        raise SqliteDatabaseError(msg)
 
     column_names_str = ''
     for column in column_names:
@@ -455,7 +455,7 @@ def db_search_table(
         if column not in column_types.keys():
             msg = 'Column "{0}" not found in database table.'.format(column)
             raise SqliteDatabaseError(msg)
-        
+
         data_type = column_types[column]
 
         filt = filters_list[idx]
@@ -509,7 +509,7 @@ def db_search_table(
 
     con = _sqlite.connect(database_name)
     cur = con.cursor()
-    
+
     try:
         cur.execute(cmd)
         data = cur.fetchall()
@@ -543,15 +543,21 @@ def db_create_table(database_name, table_name, db_dict):
     if database_name is None:
         msg = 'Invalid database name.'
         raise SqliteDatabaseError(msg)
-    
+
     if len(table_name) == 0:
         msg = 'Invalid table name.'
         raise SqliteDatabaseError(msg)
-    
+
     if db_dict is None:
         db_dict = {}
 
-    fields = [db_dict[k]['field'] for k in db_dict.keys()]
+    fields = []
+    for k in db_dict.keys():
+        if 'field' in db_dict[k].keys():
+            field = db_dict[k]['field']
+        else:
+            field = k
+        fields.append(field)
 
     variables = []
     if 'id' not in fields:
@@ -562,13 +568,16 @@ def db_create_table(database_name, table_name, db_dict):
         variables.append(['hour', 'TEXT NOT NULL'])
 
     for attr_name in db_dict:
-        column = db_dict[attr_name]['field']
-        
+        if 'field' in db_dict[attr_name].keys():
+            column = db_dict[attr_name]['field']
+        else:
+            column = attr_name
+
         if 'dtype' in db_dict[attr_name].keys():
             dtype = db_dict[attr_name]['dtype']
         else:
             dtype = _utils.DEFAULT_DTYPE
-        
+
         if 'not_null' in db_dict[attr_name].keys():
             not_null = db_dict[attr_name]['not_null']
         else:
@@ -647,7 +656,7 @@ def db_save(database_name, table_name, values_dict):
     values = []
     for column in column_names:
         values.append(values_dict[column])
-    aux_str = '(' + ','.join(['?']*len(values)) + ')'  
+    aux_str = '(' + ','.join(['?']*len(values)) + ')'
 
     con = _sqlite.connect(database_name)
     cur = con.cursor()
@@ -710,7 +719,7 @@ def db_read(database_name, table_name, idn=None):
     values_dict = {}
     for idx, column in enumerate(column_names):
         values_dict[column] = entry[idx]
-    
+
     return values_dict
 
 
@@ -746,7 +755,7 @@ def db_update(database_name, table_name, values_dict, idn):
 
     if idn is None:
         msg = 'Invalid id number.'
-        raise SqliteDatabaseError(msg)  
+        raise SqliteDatabaseError(msg)
 
     values = []
     aux_str = ''
@@ -754,7 +763,7 @@ def db_update(database_name, table_name, values_dict, idn):
         values.append(values_dict[column])
         aux_str = aux_str + '`' + column + '`' + '=?, '
     aux_str = aux_str[:-2]
-    
+
     con = _sqlite.connect(database_name)
     cur = con.cursor()
 

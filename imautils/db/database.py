@@ -75,7 +75,7 @@ class Database():
         self.database_name = database_name
         self.mongo = mongo
         self.server = server
-        return True        
+        return True
 
     def db_database_exists(self):
         """Check if database exists.
@@ -252,11 +252,11 @@ class DatabaseCollection(Database):
 
         Args:
             idns (list): list of document ids.
-    
+
         Returns:
             True if successful, False otherwise.
 
-        """            
+        """
         if self.mongo:
             if self.client is None:
                 self.client = _mongodatabase.db_connect(server=self.server)
@@ -367,7 +367,7 @@ class DatabaseDocument(DatabaseCollection):
     # Example of db_dict:
     # db_dict = _collections.OrderedDict([
     #     ('attribute_name', {
-    #         'field': 'field_name',
+    #         'field' (optinal): 'field_name',
     #         'dtype' (optional): str,
     #         'not_null' (optional): False, # only used for sqlite databases
     #         'unique' (optional): False, # only used for sqlite databases
@@ -545,7 +545,11 @@ class DatabaseDocument(DatabaseCollection):
 
         reverse_db_dict = {}
         for k, v in self.db_dict.items():
-            reverse_db_dict[v['field']] = k
+            if 'field' in v.keys():
+                field = v['field']
+            else:
+                field = k
+            reverse_db_dict[field] = k
 
         if 'id' in reverse_db_dict.keys():
             setattr(self, reverse_db_dict['id'], None)
@@ -565,7 +569,10 @@ class DatabaseDocument(DatabaseCollection):
             values_dict['hour'] = hour
 
         for attr_name in self.db_dict:
-            field = self.db_dict[attr_name]['field']
+            if 'field' in self.db_dict[attr_name].keys():
+                field = self.db_dict[attr_name]['field']
+            else:
+                field = attr_name
 
             if 'dtype' in self.db_dict[attr_name].keys():
                 dtype = self.db_dict[attr_name]['dtype']
@@ -620,16 +627,28 @@ class DatabaseDocument(DatabaseCollection):
         field_names = self.db_get_field_names()
 
         for attr_name in self.db_dict:
-            field = self.db_dict[attr_name]['field']
+            if 'field' in self.db_dict[attr_name].keys():
+                field = self.db_dict[attr_name]['field']
+            else:
+                field = attr_name
 
             if field not in field_names:
-                msg = 'Field {0:s} not found in database.'.format(field)
-                raise DatabaseError(msg)
+                if 'not_null' in self.db_dict[attr_name].keys():
+                    not_null = self.db_dict[attr_name]['not_null']
+                else:
+                    not_null = _utils.DEFAULT_NOT_NULL
+
+                if not_null:
+                    msg = 'Field {0:s} not found in database.'.format(field)
+                    raise DatabaseError(msg)
+                else:
+                    value = None
+
+            else:
+                value = values_dict[field]
 
             try:
-                value = values_dict[field]
                 setattr(self, attr_name, value)
-
             except AttributeError:
                 pass
 
@@ -651,7 +670,11 @@ class DatabaseDocument(DatabaseCollection):
 
         reverse_db_dict = {}
         for k, v in self.db_dict.items():
-            reverse_db_dict[v['field']] = k
+            if 'field' in v.keys():
+                field = v['field']
+            else:
+                field = k
+            reverse_db_dict[field] = k
 
         if 'id' in reverse_db_dict.keys():
             setattr(self, reverse_db_dict['id'], idn)
@@ -671,7 +694,10 @@ class DatabaseDocument(DatabaseCollection):
             values_dict['hour'] = hour
 
         for attr_name in self.db_dict:
-            field = self.db_dict[attr_name]['field']
+            if 'field' in self.db_dict[attr_name].keys():
+                field = self.db_dict[attr_name]['field']
+            else:
+                field = attr_name
 
             if 'dtype' in self.db_dict[attr_name].keys():
                 dtype = self.db_dict[attr_name]['dtype']
@@ -734,7 +760,7 @@ class DatabaseAndFileDocument(DatabaseDocument):
                 timestamp, self.label, str(self.idn))
         return filename
 
-    def read_file(self, filename):
+    def read_file(self, filename, check_nr_columns=True):
         """Read from file.
 
         Args:
@@ -764,8 +790,15 @@ class DatabaseAndFileDocument(DatabaseDocument):
                 for idx, attr in enumerate(attrs):
                     setattr(self, attr, data[:, idx])
             else:
-                msg = 'Inconsistent number of columns in file: %s' % filename
-                raise FileDocumentError(msg)
+                if not check_nr_columns:
+                    idx = 0
+                    nr_columns = int(data.shape[1]/len(attrs))
+                    for attr in attrs:
+                        setattr(self, attr, data[:, idx:idx+nr_columns])
+                        idx += nr_columns
+                else:
+                    msg = 'Inconsistent number of columns in file: %s' % filename
+                    raise FileDocumentError(msg)
 
         return True
 

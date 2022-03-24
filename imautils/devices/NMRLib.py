@@ -112,15 +112,15 @@ def NMR_factory(baseclass):
                 return None
 
         def configure(
-                self, frequency, aquisition, field_sense, display_unit,
+                self, mode, frequency, field_sense, display_unit,
                 display_vel, search_time, channel, nr_channels, wait=0.05):
             """Configure NMR.
 
             Args:
             ----
-                frequency (int or str): initial search frequency,
-                aquisition (int or str): aquisition mode
+                mode (int or str): aquisition mode
                     [Manual(0) or Auto(1)],
+                frequency (int or str): initial search frequency,
                 field_sense (int or str): field sense
                     [Negative(0) or Positive(1)],
                 display_unit (int or str): display unit
@@ -140,6 +140,9 @@ def NMR_factory(baseclass):
                 with self.rlock:
                     self.send_command(self.commands.remote)
                     _time.sleep(wait)
+                    
+                    self.send_command(self.commands.quit_search)
+                    _time.sleep(wait)
 
                     self.send_command(self.commands.channel + str(channel))
                     _time.sleep(wait)
@@ -148,13 +151,24 @@ def NMR_factory(baseclass):
                         self.commands.nr_channels + str(nr_channels))
                     _time.sleep(wait)
 
-                    self.send_command(
-                        self.commands.frequency+str(frequency))
-                    _time.sleep(wait)
+                    if mode == 0:
+                        self.send_command(
+                            self.commands.aquisition + "0")  
+                        _time.sleep(wait)
 
-                    self.send_command(
-                        self.commands.aquisition + str(aquisition))
-                    _time.sleep(wait)
+                    elif mode == 1:
+                        self.send_command(
+                            self.commands.aquisition + "1") 
+                        _time.sleep(wait)
+
+                        self.send_command(
+                            self.commands.frequency+str(frequency))
+                        _time.sleep(wait)               
+
+                    else:
+                        self.send_command(
+                            self.commands.search + str(frequency))            
+                        _time.sleep(wait)
 
                     self.send_command(
                         self.commands.field_sense + str(field_sense))
