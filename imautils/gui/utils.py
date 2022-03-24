@@ -3,6 +3,7 @@
 """Utils."""
 
 import numpy as _np
+import os.path as _path
 from qtpy.QtWidgets import (
     QComboBox as _QComboBox,
     QListView as _QListView,
@@ -11,6 +12,9 @@ from qtpy.QtWidgets import (
 from qtpy.QtCore import Qt as _Qt
 from qtpy.QtGui import QStandardItemModel as _QStandardItemModel
 
+
+BASEPATH = _path.dirname(
+    _path.dirname(_path.dirname(_path.abspath(__file__))))
 
 class CheckableComboBox(_QComboBox):
     """Combo box with checkable items."""
@@ -190,3 +194,20 @@ class DraggableLegend():
             'button_release_event', button_release_callback)
         self.canvas.mpl_connect(
             'motion_notify_event', motion_notify_callback)
+
+
+def get_ui_file(widget):
+    """Get the ui file path.
+
+    Args:
+        widget  (QWidget or class)
+    """
+    if isinstance(widget, type):
+        basename = '%s.ui' % widget.__name__.lower()
+    else:
+        basename = '%s.ui' % widget.__class__.__name__.lower()
+    ui_path = _path.join(
+        BASEPATH, _path.join('imautils', _path.join('gui', 'ui')))
+    ui_file = _path.join(ui_path, basename)
+
+    return ui_file

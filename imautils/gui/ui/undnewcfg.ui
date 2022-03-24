@@ -1,0 +1,237 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<ui version="4.0">
+ <class>NewCfgDialog</class>
+ <widget class="QDialog" name="NewCfgDialog">
+  <property name="geometry">
+   <rect>
+    <x>0</x>
+    <y>0</y>
+    <width>603</width>
+    <height>260</height>
+   </rect>
+  </property>
+  <property name="windowTitle">
+   <string>New Cfg</string>
+  </property>
+  <widget class="QWidget" name="layoutWidget">
+   <property name="geometry">
+    <rect>
+     <x>10</x>
+     <y>97</y>
+     <width>170</width>
+     <height>120</height>
+    </rect>
+   </property>
+   <layout class="QGridLayout" name="gridLayout_10">
+    <item row="3" column="1">
+     <widget class="QDoubleSpinBox" name="dsb_gh_pos">
+      <property name="decimals">
+       <number>3</number>
+      </property>
+      <property name="minimum">
+       <double>-26.250000000000000</double>
+      </property>
+      <property name="maximum">
+       <double>26.250000000000000</double>
+      </property>
+     </widget>
+    </item>
+    <item row="2" column="1">
+     <widget class="QDoubleSpinBox" name="dsb_gv_pos">
+      <property name="decimals">
+       <number>3</number>
+      </property>
+      <property name="minimum">
+       <double>-26.250000000000000</double>
+      </property>
+      <property name="maximum">
+       <double>26.250000000000000</double>
+      </property>
+     </widget>
+    </item>
+    <item row="0" column="1">
+     <widget class="QDoubleSpinBox" name="dsb_ph_pos">
+      <property name="decimals">
+       <number>3</number>
+      </property>
+      <property name="minimum">
+       <double>-26.250000000000000</double>
+      </property>
+      <property name="maximum">
+       <double>26.250000000000000</double>
+      </property>
+     </widget>
+    </item>
+    <item row="1" column="1">
+     <widget class="QDoubleSpinBox" name="dsb_cph_pos">
+      <property name="decimals">
+       <number>3</number>
+      </property>
+      <property name="minimum">
+       <double>-26.250000000000000</double>
+      </property>
+      <property name="maximum">
+       <double>26.250000000000000</double>
+      </property>
+     </widget>
+    </item>
+    <item row="0" column="0">
+     <widget class="QLabel" name="label_34">
+      <property name="text">
+       <string>Phase [mm]:</string>
+      </property>
+     </widget>
+    </item>
+    <item row="1" column="0">
+     <widget class="QLabel" name="label_35">
+      <property name="text">
+       <string>CounterPhase [mm]:</string>
+      </property>
+     </widget>
+    </item>
+    <item row="2" column="0">
+     <widget class="QLabel" name="label_36">
+      <property name="text">
+       <string>GV [mm]:</string>
+      </property>
+     </widget>
+    </item>
+    <item row="3" column="0">
+     <widget class="QLabel" name="label_37">
+      <property name="text">
+       <string>GH [mm]:</string>
+      </property>
+     </widget>
+    </item>
+   </layout>
+  </widget>
+  <widget class="QWidget" name="layoutWidget_2">
+   <property name="geometry">
+    <rect>
+     <x>186</x>
+     <y>223</y>
+     <width>403</width>
+     <height>25</height>
+    </rect>
+   </property>
+   <layout class="QHBoxLayout" name="horizontalLayout_6">
+    <item>
+     <widget class="QPushButton" name="pbt_remove_cfg">
+      <property name="text">
+       <string>Remove Configuration</string>
+      </property>
+     </widget>
+    </item>
+    <item>
+     <widget class="QPushButton" name="pbt_clear_table">
+      <property name="text">
+       <string>Clear Table</string>
+      </property>
+     </widget>
+    </item>
+   </layout>
+  </widget>
+  <widget class="QTableWidget" name="tw_configurations">
+   <property name="geometry">
+    <rect>
+     <x>186</x>
+     <y>10</y>
+     <width>403</width>
+     <height>207</height>
+    </rect>
+   </property>
+   <property name="dragEnabled">
+    <bool>true</bool>
+   </property>
+   <property name="sortingEnabled">
+    <bool>true</bool>
+   </property>
+   <column>
+    <property name="text">
+     <string>Cfg #</string>
+    </property>
+   </column>
+   <column>
+    <property name="text">
+     <string>Configuration</string>
+    </property>
+   </column>
+  </widget>
+  <widget class="QPushButton" name="pbt_add_cfg">
+   <property name="geometry">
+    <rect>
+     <x>10</x>
+     <y>224</y>
+     <width>170</width>
+     <height>23</height>
+    </rect>
+   </property>
+   <property name="text">
+    <string>Add Configuration</string>
+   </property>
+  </widget>
+  <widget class="QWidget" name="layoutWidget_3">
+   <property name="geometry">
+    <rect>
+     <x>10</x>
+     <y>10</y>
+     <width>170</width>
+     <height>55</height>
+    </rect>
+   </property>
+   <layout class="QGridLayout" name="gridLayout_11">
+    <item row="1" column="0">
+     <layout class="QHBoxLayout" name="horizontalLayout_7">
+      <item>
+       <widget class="QPushButton" name="pbt_save">
+        <property name="sizePolicy">
+         <sizepolicy hsizetype="Minimum" vsizetype="Fixed">
+          <horstretch>0</horstretch>
+          <verstretch>0</verstretch>
+         </sizepolicy>
+        </property>
+        <property name="text">
+         <string>Save Cfg</string>
+        </property>
+       </widget>
+      </item>
+     </layout>
+    </item>
+    <item row="0" column="0">
+     <layout class="QHBoxLayout" name="horizontalLayout_5">
+      <item>
+       <widget class="QLabel" name="label_33">
+        <property name="sizePolicy">
+         <sizepolicy hsizetype="Maximum" vsizetype="Fixed">
+          <horstretch>0</horstretch>
+          <verstretch>0</verstretch>
+         </sizepolicy>
+        </property>
+        <property name="text">
+         <string>Name:</string>
+        </property>
+       </widget>
+      </item>
+      <item>
+       <widget class="QLineEdit" name="le_cfg_name"/>
+      </item>
+     </layout>
+    </item>
+   </layout>
+  </widget>
+ </widget>
+ <tabstops>
+  <tabstop>le_cfg_name</tabstop>
+  <tabstop>pbt_save</tabstop>
+  <tabstop>dsb_ph_pos</tabstop>
+  <tabstop>dsb_cph_pos</tabstop>
+  <tabstop>dsb_gv_pos</tabstop>
+  <tabstop>dsb_gh_pos</tabstop>
+  <tabstop>pbt_add_cfg</tabstop>
+  <tabstop>pbt_remove_cfg</tabstop>
+  <tabstop>pbt_clear_table</tabstop>
+  <tabstop>tw_configurations</tabstop>
+ </tabstops>
+ <resources/>
+ <connections/>
+</ui>

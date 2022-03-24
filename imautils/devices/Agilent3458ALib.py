@@ -1,12 +1,14 @@
-# -*- coding: utf-8 -*-
+# -*- coding: latin-1 -*-
 """Agilent3458A communication.
 
 Created on 10/02/2015
 @author: James Citadini
 """
 
-import struct as _struct
+import sys as _sys
 import numpy as _np
+import struct as _struct
+import traceback as _traceback
 
 from . import utils as _utils
 
@@ -382,14 +384,24 @@ def Agilent3458A_factory(baseclass):
             Return:
                 list of reading values.
             """
-            values = _np.array([])
-            self.send_command(self.commands.mcount)
-            npoints = int(self.read_from_device().replace('\r\n', ''))
-            if npoints > 0:
-                self.send_command(self.commands.rmem + str(npoints))
-                for idx in range(npoints):
-                    values = _np.append(values, self.get_readings(formtype))
-            return values
+            for i in range(2):
+                if i == 1:
+                    return None
+                try:
+                    i = 0
+                    values = _np.array([])
+                    self.send_command(self.commands.mcount)
+                    npoints = int(self.read_from_device().replace('\r\n', ''))
+                    if npoints > 0:
+                        self.send_command(self.commands.rmem + str(npoints))
+                        for idx in range(npoints):
+                            values = _np.append(values, self.get_readings(formtype))
+                    return values
+                except ValueError:
+                    continue
+                except Exception:
+                    # _traceback.print_exc(file=_sys.stdout)
+                    raise
 
         def reset(self):
             """Reset device."""

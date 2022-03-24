@@ -4,6 +4,7 @@ import sys as _sys
 import time as _time
 import traceback as _traceback
 import paramiko as _paramiko
+import socket
 
 
 class PmacCommands(object):
@@ -79,6 +80,7 @@ class EthernetCom(object):
             _time.sleep(0.3)
             self.ppmac.send('gpascii -2\r\n')
             _time.sleep(0.4)
+            
             self.read()
             return True
         except Exception:
@@ -120,9 +122,12 @@ class EthernetCom(object):
                     _ans = _ans.replace('Coord[1].Q[88]', '')
                 _ans = float(_ans)
             return _ans
+        except socket.timeout:
+            print('Socket timeout PmacLV_IMS, line 111.')
+            return ''
         except Exception:
             print(_traceback.print_exc(file=_sys.stdout))
-            return '0000000'
+            return None
 
     def write(self, msg):
         """Writes a string to the controller.

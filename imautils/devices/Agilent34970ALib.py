@@ -5,7 +5,9 @@ Created on 10/02/2015
 @author: James Citadini
 """
 
+import sys as _sys
 import time as _time
+import traceback as _traceback
 
 from . import utils as _utils
 
@@ -97,6 +99,7 @@ def Agilent34970A_factory(baseclass):
                 return True
 
             except Exception:
+                _traceback.print_exc(file=_sys.stdout)
                 return False
 
         def get_readings(self, wait=0.5):
