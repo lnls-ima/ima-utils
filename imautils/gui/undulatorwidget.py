@@ -38,6 +38,9 @@ class UndulatorWidget(_QWidget):
         uifile = _get_ui_file(self)
         self.ui = _uic.loadUi(uifile, self)
 
+        default_speed = 0.1  # [mm/s]
+        self.ui.dsb_speed.setValue(default_speed)
+
         self.und_utils = _UndUtils()
 
         self.upd_status_timer = _QTimer()
